@@ -1,0 +1,153 @@
+Setup
+-----
+Packages to install under ubuntu
+
+    sudo apt-get install mysql-common mysql-server pi
+
+The configuration will ask you to set up a root user for mysql-server. Make
+sure that you know what this password is you will need to have it.
+
+To run the mysql_slap_test.sh a test database needs to be first imported into
+mysql. Run this command to connect to MySQL and run the employees.sql script,
+which will create the database and load the data:
+
+    cd mysql_slap/employees_db
+    mysql -u <mysql user> -p -t < employees.sql
+
+At the prompt, enter the password your MySQL user. The process output will look
+like this. It will take a minute or so to run:
+
+    +-----------------------------+
+    | INFO                        |
+    +-----------------------------+
+    | CREATING DATABASE STRUCTURE |
+    +-----------------------------+
+    +------------------------+
+    | INFO                   |
+    +------------------------+
+    | storage engine: InnoDB |
+    +------------------------+
+    +---------------------+
+    | INFO                |
+    +---------------------+
+    | LOADING departments |
+    +---------------------+
+    +-------------------+
+    | INFO              |
+    +-------------------+
+    | LOADING employees |
+    +-------------------+
+    +------------------+
+    | INFO             |
+    +------------------+
+    | LOADING dept_emp |
+    +------------------+
+    +----------------------+
+    | INFO                 |
+    +----------------------+
+    | LOADING dept_manager |
+    +----------------------+
+    +----------------+
+    | INFO           |
+    +----------------+
+    | LOADING titles |
+    +----------------+
+    +------------------+
+    | INFO             |
+    +------------------+
+    | LOADING salaries |
+    +------------------+
+
+<OPTIONAL>
+Now you can check that the data was imported successfully into MySQL.
+
+    mysql -u <mysql user> -p 
+
+Enter the password for your MySQL user.
+
+Check the list of databases for the new employees database:
+
+    mysql> show databases;
+    
+Output:
+
+    +--------------------+
+    | Database           |
+    +--------------------+
+    | information_schema |
+    | employees          |
+    | mysql              |
+    | performance_schema |
+    +--------------------+
+
+Use the employees database:
+
+    mysql> use employees;
+    
+Check the tables in it:
+
+    mysql> show tables;
+
+Output:
+
+    +---------------------+
+    | Tables_in_employees |
+    +---------------------+
+    | departments         |
+    | dept_emp            |
+    | dept_manager        |
+    | employees           |
+    | salaries            |
+    | titles              |
+    +---------------------+
+
+If you want to, you can check the details for each of these tables. We'll just check the information for the titles table:
+
+    mysql> describe titles;
+
+Output:
+
+    +-----------+-------------+------+-----+---------+-------+
+    | Field     | Type        | Null | Key | Default | Extra |
+    +-----------+-------------+------+-----+---------+-------+
+    | emp_no    | int(11)     | NO   | PRI | NULL    |       |
+    | title     | varchar(50) | NO   | PRI | NULL    |       |
+    | from_date | date        | NO   | PRI | NULL    |       |
+    | to_date   | date        | YES  |     | NULL    |       |
+    +-----------+-------------+------+-----+---------+-------+
+
+Check the number of entries:
+
+    mysql> select count(*) from titles;
+    +----------+
+    | count(*) |
+    +----------+
+    |   443308 |
+    +----------+
+
+Check any of the other data you want. We can now go back to our operating system prompt:
+
+    mysql> quit;
+or
+    mysql> exit
+
+
+Run test
+--------
+To run the test load script the username and password are required and a few
+options are given. The execution time of the script will depend on the machince
+and the load on it.
+
+    ./mysql_slap_test.sh -u <mysql_user> -p <mysql_password> [options]
+    Options:
+     -h , --help       print this message
+     -u , --user       mysql username with access to employee database
+     -p , --password   mysql password for user
+     -d , --debug      show all output from commands
+     -f , --force      force deletion of test table to run
+
+The test creates a table in the employees database called test and writes
+verifyable data to it. If the test if forced to exit before it is finished the
+test table will be cleaned up otherwise it will be left for verification. The
+force flag deletes this table if the test is to be run again after a
+successfull completion or when the test did not clean up nicely. 
