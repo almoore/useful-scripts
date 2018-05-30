@@ -1,0 +1,209 @@
+#!/bin/bash
+
+# Configuration variables (change as you wish)
+src=""
+dst=""
+backupDepth=7
+timeout=1800
+pathBak0="data"
+rotationLockFileName=".rsync-rotation-lock"
+pathBakN="backup"
+nameBakN="backup"
+exclusionFileName="exclude.txt"
+# date iso                   (date "+%Y-%m-%d") 
+# date fully iso compliant   (date -u +"%Y-%m-%dT%H:%M:%SZ")
+date_ISO=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+logName="rsync-incremental-backup_${date_ISO}.log"
+ownFolderName=".rsync-incremental-backup"
+logFolderName="log"
+
+debug=0
+
+usage() {
+    echo "Usage: $0 [options] SRC DST"
+    echo "This script is meant to create an incremental backup using rsync."
+    echo "Options:"
+    echo "         --debug     turn on debug output"
+    echo "    -d | --depth     specify the depth to use in the backup rotation"
+    echo "    -p | --prefix    specify the prefix to store the backup data"
+    echo ""
+    echo "    -h | --help      print this message"
+}
+
+
+while [ -n "${1}" ]; do
+    case "${1}" in
+        --debug)
+            debug=1
+            ;;
+        -B | --backup-depth)
+            shift
+            backupDepth="${1}"
+            ;;
+        -p | --prefix)
+            shift
+            pathBak0="${1}"
+            ;;
+        -h | --help)
+            usage
+            exit
+            ;;
+        *)
+            if [ -z "$src" ]; then
+                src="${1%/}"
+            elif [ -z "$dst" ]; then
+                dst="${1%/}"
+            else
+                echo "Unknown argument: ${1}"
+                usage
+                exit
+            fi
+            ;;
+    esac
+    shift
+done
+
+trap_caught()
+{
+    echo "caught signal ${1}"
+    # Check rsync success
+	  writeToLog "Backup failed, try again later\n"
+	  rsyncFail=1
+    
+    # Send the complete log file to destination
+    mv ${logFile} ${logPath}
+    
+    exit ${rsyncFail}
+}
+trap trap_caught SIGINT SIGTERM
+
+
+if [ "${debug}" -ne 0 ]; then
+    set -x
+fi
+
+if [ -z "$src" -o -z "$dst" ]; then
+    usage
+    echo "ERROR: Need both source and destination"
+    exit 1
+fi
+
+# Combinate previously defined variables for use (don't touch this)
+ownFolderPath="${HOME}/${ownFolderName}"
+tempLogPath="${ownFolderPath}/local_${dst//[\/]/\\}"
+exclusionFilePath="${ownFolderPath}/${exclusionFileName}"
+bak0="${dst}/${pathBak0}"
+rotationLockFilePath="${dst}/${rotationLockFileName}"
+logPath="${dst}/${pathBakN}/${logFolderName}"
+logFile="${tempLogPath}/${logName}"
+
+
+# Prepare log file
+mkdir -p ${tempLogPath}
+touch ${logFile}
+
+if [ ! -f ${exclusionFilePath} ]; then
+    touch ${exclusionFilePath}
+fi
+
+writeToLog() {
+	echo -e "\n[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] $1" | tee -a ${logFile}
+}
+
+writeToLog "
+********************************
+*                              *
+*   rsync-incremental-backup   *
+*                              *
+********************************"
+
+# Prepare backup paths
+i=1
+while [ $i -le $backupDepth ]
+do
+	export bak$i="${dst}/${pathBakN}/${nameBakN}.$i"
+	true $((i = i + 1))
+done
+
+# Prepare main rsync configuration
+rsyncFlags="-achv --progress --timeout=${timeout} -W \
+--link-dest=${bak1}/ --log-file=${logFile} --exclude=${ownFolderPath} --chmod=+r \
+--exclude-from=${exclusionFilePath}"
+
+# Prepare log rsync configuration
+logRsyncFlags="-rhv --remove-source-files --exclude=${logName} --log-file=${logFile}"
+
+writeToLog "You are going to backup
+\tfrom:  ${src}
+\tto:    ${bak0}
+\tflags: ${rsyncFlags}"
+
+# Prepare paths at destination
+mkdir -p ${dst} ${logPath}
+
+writeToLog "Old logs sending begins\n"
+
+# Send old pending logs to destination
+rsync ${logRsyncFlags} ${tempLogPath}/ ${logPath}/
+
+writeToLog "Old logs sending finished"
+
+# Rotate backups if last rsync succeeded ..
+if ([ ! -e ${rotationLockFilePath} ])
+then
+	# .. and there is previous data
+	if [ -d ${bak0} ]
+	then
+		writeToLog "Backups rotation begins"
+
+		true $((i = i - 1))
+
+		# Remove the oldest backup if exists
+		bak="bak$i"
+		rm -rf ${!bak}
+
+		# Rotate the previous backups
+		while [ $i -gt 0 ]
+		do
+			bakNewPath="bak$i"
+			true $((i = i - 1))
+			bakOldPath="bak$i"
+			if [ -d ${!bakOldPath} ]
+			then
+				mv ${!bakOldPath} ${!bakNewPath}
+			fi
+		done
+
+		writeToLog "Backups rotation finished\n"
+	else
+		writeToLog "No previous data found, there is no backups to be rotated\n"
+	fi
+else
+	writeToLog "Last backup failed, backups will not be rotated\n"
+fi
+
+# Set rotation lock file to detect in next run when backup fails
+touch ${rotationLockFilePath}
+
+writeToLog "Backup begins\n"
+
+# Do the backup
+rsync ${rsyncFlags} ${src}/ ${bak0}/
+
+# Check rsync success
+if [ "$?" -eq "0" ]
+then
+	writeToLog "Backup completed successfully\n"
+
+	# Clear unneeded partials and lock file
+	rm -rf ${rotationLockFilePath}
+	rsyncFail=0
+else
+	writeToLog "Backup failed, try again later\n"
+	rsyncFail=1
+fi
+
+# Send the complete log file to destination
+mv ${logFile} ${logPath}
+
+exit ${rsyncFail}
