@@ -20,7 +20,7 @@ logFolderName="log"
 debug=0
 
 usage() {
-    echo "Usage: $0 [options] SRC DST"
+    echo "Usage: ${0##*/} [options] SRC DST"
     echo "This script is meant to create an incremental backup using rsync."
     echo "Options:"
     echo "         --debug     turn on debug output"
