@@ -1,7 +1,7 @@
 #!/bin/bash
 
 _PREV_CONTEXT=$(kubectl config current-context)
-CONTEXT=bitsy-central
+CONTEXT=${K8S_CONTEXT:-bitsy-central}
 debug=0
 build=1
 date=$(date +"%Y%m%d%H%M%S")
