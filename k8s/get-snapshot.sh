@@ -1,7 +1,7 @@
 #!/bin/bash
 
 _PREV_CONTEXT=$(kubectl config current-context)
-CONTEXT=${K8S_CONTEXT:-bitsy-central}
+CONTEXT=${K8S_CONTEXT:-$_PREV_CONTEXT}
 debug=0
 build=1
 date=$(date +"%Y%m%d%H%M%S")
@@ -57,7 +57,7 @@ cd $prefix
 touch manifest.txt
 
 if [ -z "$NAMESPACES" ]; then 
-    NAMESPACES=$(kubectl get namespace -o name | xargs basename)
+    NAMESPACES=$(kubectl get namespace -o name | xargs -n1 basename)
 fi
 
 if [ -z "$KINDS" ]; then 
