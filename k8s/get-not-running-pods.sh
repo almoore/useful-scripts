@@ -1,0 +1,1 @@
+kubectl get pod --field-selector 'status.phase!=Running' "$@"

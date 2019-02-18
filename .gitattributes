@@ -1,0 +1,5 @@
+* text=input
+*.yaml text eol=lf
+*.json text eol=lf
+*.sh text eol=lf
+*.py text eol=lf

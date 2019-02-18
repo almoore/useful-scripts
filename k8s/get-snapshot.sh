@@ -9,7 +9,7 @@ prefix=$date
 
 usage() {
 cat << EOF
-USAGE: $0 [options]
+USAGE: ${0##*/} [options]
   options:
   -n | --namespaces NAMESPACES
   -k | --kinds KINDS
