@@ -20,6 +20,7 @@ alias gpom='git push origin master'
 alias gpod='git push origin development'
 alias grom='git reset --hard origin/master'
 alias gp='git pull'
+alias gpar='git pull --autostash --rebase'
 
 # Env Overload
 alias utcdate='TZ=utc date'
@@ -53,7 +54,8 @@ alias urlencode='python -c "import sys, urllib as ul; print ul.quote_plus(sys.ar
 alias bsc='git add .; git commit -a -m "Bull Shit Commit"; git push origin master'
 
 # OSX stuff
-if [ ! $(which md5sum > /dev/null) ]; then
+if [ "$OSTYPE" = "darwin" ]; then
+  if ! $(command -v md5suml) ; then
     mkdir -p ~/bin
     if [ ! -f  ~/bin/md5sum ]; then
         cat <<EOF > ~/bin/md5sum
@@ -61,6 +63,13 @@ md5 -r "${@}"
 EOF
     fi
     chmod +x ~/bin/md5sum
+  fi
+fi
+
+if command -v git /dev/null; then
+    git config --global alias.unstage 'reset --'
+    git config --global alias.diff-cached 'diff --cached'
+    git config --global alias.ws 'rebase --whitespace=fix'
 fi
 
 # Functions
