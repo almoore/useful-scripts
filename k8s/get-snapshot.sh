@@ -5,10 +5,13 @@
 
 _PREV_CONTEXT=$(kubectl config current-context)
 CONTEXT=${K8S_CONTEXT:-$_PREV_CONTEXT}
-debug=0
-build=1
+DEBUG=0
+DUMP_ALL_RESOURCES=0
+DUMP_BY_NAMESPACE=0
 date=$(date +"%Y%m%d%H%M%S")
 prefix=$date
+
+set -e
 
 error() {
   echo "$*" >&2
@@ -16,12 +19,28 @@ error() {
 
 usage() {
 cat << EOF >&2
-USAGE: ${0##*/} [options]
-  options:
-  -n | --namespaces NAMESPACES
-  -k | --kinds KINDS
-  --prefix PREFIX
-  --debug
+Collect data from a Kubernetes cluster using kubectl
+
+Usage:
+  ${0##*/} [options]
+
+Options:
+  -n, --namespaces         space seperated list of namespaces to search
+  -k, --kinds              comma seperated list of kinds of object to restrict
+                              the dump to example: configmaps,secrets,events,pods
+  -l, --selector           selector (label query) to filter on
+  -a, --all                if present, collects from all namespace and kinds
+  -R, --by-resource        if present, dump by resource and kind
+  -p, --prefix             the prefix to write to; defaults to date string
+  -d, --output-directory   directory to output files; defaults to
+                              "k8s-backup/<prefix-dir>"
+  -z, --archive            if present, archives and removes the output
+                              directory
+  -q, --quiet              if present, do not log
+  --error-if-nasty-logs    if present, exit with 255 if any logs
+                              contain errors
+  --debug                  turn on debug logging
+
 EOF
 }
 
@@ -35,30 +54,40 @@ log() {
 parse_args() {
   while [ -n "${1}" ]; do
     case "${1}" in
-      -n | --namespaces)
+      -n|--namespaces)
         shift
         NAMESPACES="$NAMESPACES $1"
         ;;
-      -k | --kinds)
+      -k|--kinds)
         shift
         KINDS="$1"
         ;;
-      --prefix |
+      -l|--selector)
+        shift
+        local selector="$1"
+        ;;
+      -p|--prefix)
         shift
         prefix="${1}"
         ;;
-      -d | --output-directory)
+      -d|--output-directory)
         shift
         local out_dir="${1}"
         ;;
       -z|--archive)
         local should_archive=true
         ;;
+      -a|--all)
+        DUMP_ALL_RESOURCES=1
+        ;;
+      -R|--by-resource)
+        DUMP_BY_NAMESPACE=1
+        ;;
       -q|--quiet)
         local quiet=true
         ;;
       --debug)
-        debug=1
+        DEBUG=1
         ;;
       --error-if-nasty-logs)
         local should_check_logs_for_errors=true
@@ -71,12 +100,18 @@ parse_args() {
     shift
   done
 
-  readonly OUT_DIR="${out_dir:k8s-backup/$prefix}"
+  if [ "${DUMP_ALL_RESOURCES}" == 1 ]; then
+    KINDS=""
+    NAMESPACES=""
+  fi
+  readonly OUT_DIR="$(realpath ${out_dir:-${PWD}/k8s-backup/$prefix})"
   readonly SHOULD_ARCHIVE="${should_archive:-false}"
   readonly QUIET="${quiet:-false}"
   readonly SHOULD_CHECK_LOGS_FOR_ERRORS="${should_check_logs_for_errors:-false}"
   readonly LOG_DIR="${OUT_DIR}/logs"
   readonly RESOURCES_FILE="${OUT_DIR}/resources.yaml"
+  readonly CUSTOM_RESOURCES_FILE="${OUT_DIR}/custom-resources.yaml"
+  readonly SELECTOR="${selector:-''}"
 }
 
 check_prerequisites() {
@@ -124,17 +159,6 @@ dump_logs_for_container() {
   fi
 }
 
-copy_core_dumps_if_istio_proxy() {
-  local namespace="${1}"
-  local pod="${2}"
-  local container="${3}"
-  local got_core_dump=false
-
-  if [ "${got_core_dump}" = true ]; then
-    return 254
-  fi
-}
-
 # Run functions on each container. Each argument should be a function which
 # takes 3 args: ${namespace} ${pod} ${container}.
 # If any of the called functions returns error, tap_containers returns
@@ -142,13 +166,14 @@ copy_core_dumps_if_istio_proxy() {
 tap_containers() {
   local functions=( "$@" )
 
-  local namespaces
-  namespaces=$(kubectl get \
+  if [ -z "$NAMESPACES" ]; then
+      NAMESPACES=$(kubectl get \
       namespaces -o=jsonpath="{.items[*].metadata.name}")
-  for namespace in ${namespaces}; do
+  fi
+  for namespace in ${NAMESPACES}; do
     local pods
     pods=$(kubectl get --namespace="${namespace}" \
-        pods -o=jsonpath='{.items[*].metadata.name}')
+        pods -l ${SELECTOR} -o=jsonpath='{.items[*].metadata.name}')
     for pod in ${pods}; do
       local containers
       containers=$(kubectl get --namespace="${namespace}" \
@@ -172,64 +197,35 @@ dump_kubernetes_resources() {
   mkdir -p "${OUT_DIR}"
   # Only works in Kubernetes 1.8.0 and above.
   kubectl get --all-namespaces --export \
-      all,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,secrets,events \
+      ${KINDS} \
       -o yaml > "${RESOURCES_FILE}"
 }
 
-dump_istio_custom_resource_definitions() {
-  log "Retrieving istio resource configurations"
+dump_custom_resource_definitions() {
+  log "Retrieving custom resource configurations"
 
-  local istio_resources
+  local custom_resources
   # Trim to only first field; join by comma; remove last comma.
-  istio_resources=$(kubectl get customresourcedefinitions \
+  custom_resources=$(kubectl get customresourcedefinitions \
       --no-headers 2> /dev/null \
       | cut -d ' ' -f 1 \
       | tr '\n' ',' \
       | sed 's/,$//')
 
-  if [ ! -z "${istio_resources}" ]; then
-    kubectl get "${istio_resources}" --all-namespaces -o yaml \
-        > "${ISTIO_RESOURCES_FILE}"
+  if [ ! -z "${custom_resources}" ]; then
+    kubectl get "${custom_resources}" --all-namespaces -o yaml \
+        > "${CUSTOM_RESOURCES_FILE}"
   fi
 }
 
 dump_resources() {
   dump_kubernetes_resources
-  dump_istio_custom_resource_definitions
+  dump_custom_resource_definitions
 
   mkdir -p "${OUT_DIR}"
   kubectl cluster-info dump > "${OUT_DIR}/cluster-info.dump.txt"
-  kubectl describe pods -n istio-system > "${OUT_DIR}/istio-system-pods.txt"
+  kubectl describe pods -n ${NAMESPACE} > "${OUT_DIR}/${NAMESPACE}-pods.txt"
   kubectl get events --all-namespaces -o wide > "${OUT_DIR}/events.txt"
-}
-
-dump_pilot_url(){
-  local pilot_pod=$1
-  local url=$2
-  local dname=$3
-  local outfile
-
-  outfile="${dname}/$(basename "${url}")"
-
-  log "Fetching ${url} from pilot"
-  kubectl -n istio-system exec -i -t "${pilot_pod}" -c istio-proxy -- \
-      curl "http://localhost:8080/${url}" > "${outfile}"
-}
-
-dump_pilot() {
-  local pilot_pod
-  pilot_pod=$(kubectl -n istio-system get pods -l istio=pilot \
-      -o jsonpath='{.items[*].metadata.name}')
-
-  if [ ! -z "${pilot_pod}" ]; then
-    local pilot_dir="${OUT_DIR}/pilot"
-    mkdir -p "${pilot_dir}"
-
-    dump_pilot_url "${pilot_pod}" debug/configz "${pilot_dir}"
-    dump_pilot_url "${pilot_pod}" debug/endpointz "${pilot_dir}"
-    dump_pilot_url "${pilot_pod}" debug/adsz "${pilot_dir}"
-    dump_pilot_url "${pilot_pod}" metrics "${pilot_dir}"
-  fi
 }
 
 archive() {
@@ -251,7 +247,7 @@ check_logs_for_errors() {
 }
 
 setup_output() {
-  if [ "${debug}" -ne 0 ]; then
+  if [ "${DEBUG}" -ne 0 ]; then
       set -x
   fi
 
@@ -260,15 +256,42 @@ setup_output() {
   fi
 
   if [ -z "$NAMESPACES" ]; then
-      NAMESPACES=$(kubectl get namespace -o name | xargs -n1 basename)
+      NAMESPACES=$(kubectl get \
+      namespaces -o=jsonpath="{.items[*].metadata.name}")
   fi
 
   if [ -z "$KINDS" ]; then
       KINDS=all,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,secrets,events,pvc
   fi
-  mkdir -p $${OUT_DIR}
-  cd $${OUT_DIR}
+  mkdir -p ${OUT_DIR}
+  cd ${OUT_DIR}
   touch manifest.txt
+}
+
+dump_by_namespace_and_kind() {
+  local namespace
+  local skip_replicaset
+  echo $KINDS | grep -E -q "(\brs\b|replicaset)"
+  skip_replicaset=$?
+  for namespace in $NAMESPACES; do
+    log "Getting namespace ${namespace}"
+    mkdir -p $namespace
+    prev=""
+    for n in $(kubectl get $KINDS -o name -n ${namespace} -l ${SELECTOR}); do
+      kind=$(dirname $n)
+      item=$(basename $n)
+      if [ "${skip_replicaset}" == 1 ] && echo ${kind} | grep -q replicaset ; then
+        continue
+      fi
+      if [ "$prev" != "$kind" ]; then
+        prev=$kind
+        log "\t${kind}"
+        mkdir -p ${namespace}/${kind}
+      fi
+      echo ${namespace}/${n}.yaml >> manifest.txt
+      kubectl get $kind $item -n ${namespace} --export -o yaml > ${namespace}/${n}.yaml
+    done
+  done
 }
 
 main() {
@@ -277,22 +300,26 @@ main() {
   setup_output
   check_prerequisites kubectl
   dump_time
-  for ns in $NAMESPACES; do
-    log "Getting namespace ${ns}"
-    mkdir -p $ns
-    prev=""
-    for n in $(kubectl get $KINDS -o name -n $ns); do
-      kind=$(dirname $n)
-      item=$(basename $n)
-      if [ "$prev" != "$kind" ]; then
-        prev=$kind
-        log -e "\t${kind}"
-        mkdir -p ${ns}/${kind}
-      fi
-      echo ${ns}/${n}.yaml >> manifest.txt
-      kubectl get $kind $item -n ${ns} -o yaml | k8s-filter > ${ns}/${n}.yaml
-    done
-  done
+  if [ "${DUMP_ALL_RESOURCES}" -eq 1 ]; then
+    dump_resources
+  fi
+  if [ "${DUMP_BY_NAMESPACE}" -eq 1 ]; then
+    dump_by_namespace_and_kind
+  fi
+  tap_containers dump_logs_for_container
+  exit_code=$?
+
+  if [ "${SHOULD_CHECK_LOGS_FOR_ERRORS}" = true ]; then
+    if ! check_logs_for_errors; then
+      exit_code=255
+    fi
+  fi
+
+  if [ "${SHOULD_ARCHIVE}" = true ] ; then
+    archive
+    rm -r "${OUT_DIR}"
+  fi
+  log "Wrote to ${OUT_DIR}"
 
   return ${exit_code}
 }

@@ -1,0 +1,5 @@
+#!/bin/bash
+PROMETHEUS_IP=$(kubectl get service -n prometheus-operator -o jsonpath='{.items[?(@.spec.selector.app=="prometheus")].status.loadBalancer.ingress[*].ip}')
+
+set -x
+helm monitor prometheus --prometheus http://${PROMETHEUS}:9090 lbp-services 'rate(http_requests_total{code=~"^5.*$"}[5m]) > 0'
