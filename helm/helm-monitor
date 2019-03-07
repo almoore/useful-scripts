@@ -1,5 +1,11 @@
 #!/bin/bash
+PROMETHEUS_NAMESPACE=${PROMETHEUS_NAMESPACE:-prometheus-operator}
 PROMETHEUS_IP=$(kubectl get service -n prometheus-operator -o jsonpath='{.items[?(@.spec.selector.app=="prometheus")].status.loadBalancer.ingress[*].ip}')
 
+APP=${MONITOR_APP:-$1}
+
+if [ -z "$APP" ]; then
+    echo "Need to supply an app name to monitor." >&2
+fi
 set -x
-helm monitor prometheus --prometheus http://${PROMETHEUS}:9090 lbp-services 'rate(http_requests_total{code=~"^5.*$"}[5m]) > 0'
+helm monitor prometheus --prometheus http://${PROMETHEUS_IP}:9090 "${APP}" 'rate(http_requests_total{code=~"^5.*$"}[5m]) > 0'

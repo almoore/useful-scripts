@@ -104,14 +104,14 @@ parse_args() {
     KINDS=""
     NAMESPACES=""
   fi
-  readonly OUT_DIR="$(realpath ${out_dir:-${PWD}/k8s-backup/$prefix})"
-  readonly SHOULD_ARCHIVE="${should_archive:-false}"
-  readonly QUIET="${quiet:-false}"
-  readonly SHOULD_CHECK_LOGS_FOR_ERRORS="${should_check_logs_for_errors:-false}"
+  readonly OUT_DIR=$(realpath ${out_dir:-${PWD}/k8s-backup/$prefix})
+  readonly SHOULD_ARCHIVE=${should_archive:-false}
+  readonly QUIET=${quiet:-false}
+  readonly SHOULD_CHECK_LOGS_FOR_ERRORS=${should_check_logs_for_errors:-false}
   readonly LOG_DIR="${OUT_DIR}/logs"
   readonly RESOURCES_FILE="${OUT_DIR}/resources.yaml"
   readonly CUSTOM_RESOURCES_FILE="${OUT_DIR}/custom-resources.yaml"
-  readonly SELECTOR="${selector:-''}"
+  readonly SELECTOR=$(if [ -n "${selector}" ]; then echo "-l ${selector}"; fi)
 }
 
 check_prerequisites() {
@@ -173,7 +173,7 @@ tap_containers() {
   for namespace in ${NAMESPACES}; do
     local pods
     pods=$(kubectl get --namespace="${namespace}" \
-        pods -l ${SELECTOR} -o=jsonpath='{.items[*].metadata.name}')
+        pods ${SELECTOR} -o=jsonpath='{.items[*].metadata.name}')
     for pod in ${pods}; do
       local containers
       containers=$(kubectl get --namespace="${namespace}" \
@@ -277,7 +277,7 @@ dump_by_namespace_and_kind() {
     log "Getting namespace ${namespace}"
     mkdir -p $namespace
     prev=""
-    for n in $(kubectl get $KINDS -o name -n ${namespace} -l ${SELECTOR}); do
+    for n in $(kubectl get $KINDS -o name -n ${namespace} ${SELECTOR}); do
       kind=$(dirname $n)
       item=$(basename $n)
       if [ "${skip_replicaset}" == 1 ] && echo ${kind} | grep -q replicaset ; then

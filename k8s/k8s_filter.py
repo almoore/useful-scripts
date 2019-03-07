@@ -152,7 +152,7 @@ def get_parser(program_name):
 
 def main(args=None, input_format="yaml", program_name="k8s_filter"):
     parser = get_parser(program_name)
-    args, jq_args = parser.parse_known_args(args=args)
+    args, _ = parser.parse_known_args(args=args)
     if sys.stdin.isatty() and not args.files:
         return parser.print_help()
 

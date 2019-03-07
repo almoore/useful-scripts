@@ -43,8 +43,7 @@ EOF
 }
 
 
-while [ -n "${1}" ]
-do
+while [ -n "${1}" ]; do
     case "${1}" in
         -f | --values)
             valueFiles+=( "${1}" )
@@ -86,6 +85,8 @@ if [ -z "${_name}" ]; then
   echo "The release name must be specified"
   exit 1
 fi
+# Normalize the name by removeing '/' that are not allowed
+_name=$(echo "${_name}" | sed "s:/::g")
 
 if [ "${#valueFiles[@]}" -eq 0 ]; then
   valueFiles+=( -f overrides/values-"${_name}".yaml)
