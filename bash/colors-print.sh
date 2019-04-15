@@ -25,8 +25,7 @@ C=0
 # Set control variables
 bg=0
 
-var_grep()
-{
+var_grep() {
     if [ "$2" != in ] || [ ! ${#} -eq 3 ] ; then
         print_form yellow bold "Incorrect usage."
         print_form yellow bold "Correct usage: vag_grep {key} in {variable}"
@@ -40,8 +39,7 @@ var_grep()
     echo $var | grep -e "\b${1}\b" > /dev/null
 }
 
-format()
-{
+format() {
     if [ ${#} -eq 2 ] ; then
         echo -en "\E[${1};${2}m"
     else
@@ -49,8 +47,7 @@ format()
     fi
 }
 
-print_form()
-{
+print_form() {
     RESET='\E[0m'
     # Backup format and color
     msg=""
@@ -175,24 +172,33 @@ BS_TRUE=1
 BS_FALSE=0
 _ECHO_DEBUG=1
 
+#---  FUNCTION  -------------------------------------------------------------------------------------------------------
+#          NAME:  __detect_color_support
+#   DESCRIPTION:  Try to detect color support.
+#----------------------------------------------------------------------------------------------------------------------
 # If the BS_COLORS value is not set get it from tput
 _COLORS=${BS_COLORS:-$(tput colors 2>/dev/null || echo 0)}
 detect_color_support() {
+    # shellcheck disable=SC2181
     if [ $? -eq 0 ] && [ "$_COLORS" -gt 2 ]; then
-        CL_BLK="\033[1;30m"
-        CL_RED="\033[1;31m"
-        CL_GRE="\033[1;32m"
-        CL_YEL="\033[1;33m"
-        CL_BLU="\033[1;34m"
-        CL_MAG="\033[1;35m"
-        CL_CYN="\033[1;36m"
-        CL_WHI="\033[1;37m"
-        CL_DEF="\033[0m"
+        BKC="\033[1;30m"
+        RC="\033[1;31m"
+        GC="\033[1;32m"
+        YC="\033[1;33m"
+        BC="\033[1;34m"
+        MC="\033[1;35m"
+        CC="\033[1;36m"
+        WC="\033[1;37m"
+        EC="\033[0m"
     else
+        BKC=""
         RC=""
         GC=""
-        BC=""
         YC=""
+        BC=""
+        MC=""
+        CC=""
+        WC=""
         EC=""
     fi
 }
@@ -204,7 +210,7 @@ detect_color_support
 #   DESCRIPTION:  Echo errors to stderr.
 #------------------------------------------------------------------------------#
 echoerror() {
-    printf "${CL_RED} * ERROR${CL_DEF}: %s\n" "$@" 1>&2;
+    printf "${RC} * ERROR${EC}: %s\n" "$@" 1>&2;
 }
 
 #---  FUNCTION  ---------------------------------------------------------------#
@@ -212,7 +218,7 @@ echoerror() {
 #   DESCRIPTION:  Echo information to stdout.
 #------------------------------------------------------------------------------#
 echoinfo() {
-    printf "${CL_GRE} *  INFO${CL_DEF}: %s\n" "$@";
+    printf "${GC} *  INFO${EC}: %s\n" "$@";
 }
 
 #---  FUNCTION  ---------------------------------------------------------------#
@@ -220,7 +226,7 @@ echoinfo() {
 #   DESCRIPTION:  Echo warning informations to stdout.
 #------------------------------------------------------------------------------#
 echowarn() {
-    printf "${CL_YEL} *  WARN${CL_DEF}: %s\n" "$@";
+    printf "${YC} *  WARN${EC}: %s\n" "$@";
 }
 
 #------------------------------------------------------------------------------#
@@ -230,7 +236,7 @@ echowarn() {
 #------------------------------------------------------------------------------#
 echodebug() {
     if [ "$_ECHO_DEBUG" -eq $BS_TRUE ]; then
-        printf "${CL_BLU} * DEBUG${CL_DEF}: %s\n" "$@";
+        printf "${BC} * DEBUG${EC}: %s\n" "$@";
     fi
 }
 

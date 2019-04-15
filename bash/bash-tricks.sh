@@ -51,6 +51,8 @@ alias ppv='puppet parser validate'
 
 # Misc
 alias urlencode='python -c "import sys, urllib as ul; print ul.quote_plus(sys.argv[1])"'
+alias urlhost='python3 -c "import sys, urllib.parse as up; print(up.urlparse(sys.argv[1]).hostname)"'
+alias urlpath='python3 -c "import sys, urllib.parse as up; print(up.urlparse(sys.argv[1]).path)"'
 alias bsc='git add .; git commit -a -m "Bull Shit Commit"; git push origin master'
 
 # OSX stuff
@@ -66,10 +68,11 @@ EOF
   fi
 fi
 
-if command -v git /dev/null; then
+if command -v git > /dev/null; then
     git config --global alias.unstage 'reset --'
     git config --global alias.diff-cached 'diff --cached'
     git config --global alias.ws 'rebase --whitespace=fix'
+    git config --global alias.top 'rev-parse --show-toplevel'
 fi
 
 # Functions
@@ -84,6 +87,10 @@ cdp () {
   done
   OLDPWD=$TEMP_PWD
 
+}
+
+cdtop() {
+    local top=$(git rev-parse --show-toplevel) &&  cd $top
 }
 
 

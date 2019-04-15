@@ -1,0 +1,7 @@
+#!/bin/bash
+
+URL=$1
+RP=$(echo $URL | sed -e 's#^.*://##' -e 's#.git$##')
+CP=~/repos/$RP
+
+git clone $URL $CP
