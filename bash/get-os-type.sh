@@ -2,7 +2,7 @@
 
 get_os_type() {
     case "$OSTYPE" in
-        darwin )
+        darwin* )
         OS_STRING="darwin"
         ;;
         linux-gnu|freebsd*)

@@ -173,7 +173,7 @@ BS_FALSE=0
 _ECHO_DEBUG=1
 
 #---  FUNCTION  -------------------------------------------------------------------------------------------------------
-#          NAME:  __detect_color_support
+#          NAME:  detect_color_support
 #   DESCRIPTION:  Try to detect color support.
 #----------------------------------------------------------------------------------------------------------------------
 # If the BS_COLORS value is not set get it from tput
