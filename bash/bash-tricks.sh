@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Aliases
 #========
 
@@ -43,6 +44,7 @@ alias ascii='man ascii | grep -m 1 -A 63 --color=never Oct'
 
 # Simple but easy
 alias ssh300='ssh-add -t 300'
+alias sshnull='ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no"'
 
 # Validate things
 alias yamlcheck='python -c "import sys, yaml as y; y.safe_load(open(sys.argv[1]))"'
@@ -54,6 +56,7 @@ alias urlencode='python -c "import sys, urllib as ul; print ul.quote_plus(sys.ar
 alias urlhost='python3 -c "import sys, urllib.parse as up; print(up.urlparse(sys.argv[1]).hostname)"'
 alias urlpath='python3 -c "import sys, urllib.parse as up; print(up.urlparse(sys.argv[1]).path)"'
 alias bsc='git add .; git commit -a -m "Bull Shit Commit"; git push origin master'
+alias stripcolors='sed -E "s/[[:cntrl:]]\[[0-9]{1,3}m//g"'
 
 # OSX stuff
 if [ "$OSTYPE" = "darwin" ]; then
@@ -107,11 +110,10 @@ gerrit () {
         return $?
     fi
     username=`git config gitreview.username`
-    #username='spencer.krum@hp.com'
 
     ssh -o VisualHostKey=no -p 29418 $username@review.openstack.org gerrit $*
 }
-export -f gerrit
+# export -f gerrit
 
 # Check out a Pull request from github
 function pr() {
@@ -153,10 +155,8 @@ vim () {
 
 # maybe this can be used like 'bc' ?
 pcp () {
-    python -c "print $@"
+    python -c "print($@)"
 }
-
-
 
 # Eject after burning
 wodim () {
@@ -180,7 +180,7 @@ shrink_audio () {
         ffmpeg -i "${1}" -map 0:a:0 -b:a 96k "${2}"
     fi
 }
-export shrink_audio
+# export -f shrink_audio
 
 lsd_compare () {
     # option 1 (time real	0m0.005s)
@@ -195,7 +195,7 @@ lsd () {
     DIR=${PWD}
     find ${DIR} -type d -maxdepth 1 | grep -v "^${DIR}$"
 }
-export lsd
+# export -f lsd
 
 dirmd5() {
     DIR=$1
@@ -204,4 +204,20 @@ dirmd5() {
     fi
     find $DIR -type f -exec md5sum {} \; | sort -k 2 | md5sum
 }
-export dirmd5
+# export -f dirmd5
+
+fingerprints() {
+  local file="${1:-$HOME/.ssh/authorized_keys}"
+  while read l; do
+    [[ -n $l && ${l###} = $l ]] && ssh-keygen -l -f /dev/stdin <<<$l
+  done < "${file}"
+}
+
+path() {
+    OLDIFS=$IFS
+    IFS=':'
+    for p in $PATH; do
+        echo $p
+    done
+    IFS=$OLDIFS
+}
