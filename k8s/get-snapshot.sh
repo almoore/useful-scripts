@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Uses kubectl to collect cluster information.
 # Dumps:
@@ -12,10 +12,6 @@ date=$(date +"%Y%m%d%H%M%S")
 prefix=$date
 
 set -e
-
-error() {
-  echo "$*" >&2
-}
 
 usage() {
 cat << EOF >&2
@@ -44,11 +40,25 @@ Options:
 EOF
 }
 
+run() {
+    if [ "VERBOSE" == 1 ]; then
+        printf "+%b\n" "$@" 1>&2
+    fi
+    "$@"
+}
+
 log() {
   local msg="${1}"
   if [ "${QUIET}" = false ]; then
-    printf '%s\n' "${msg}"
+    printf "%b\n" "${msg}"
   fi
+}
+
+error_out() {
+  local msg="${1}"
+  RED='\E[1;31m'
+  RESET='\E[0m'
+  printf "${RED}%b ${RESET}\n" "${msg}" >&2
 }
 
 parse_args() {
@@ -83,8 +93,14 @@ parse_args() {
       -R|--by-resource)
         DUMP_BY_NAMESPACE=1
         ;;
+      -L|--no-logs)
+        NO_LOGS=1
+        ;;
       -q|--quiet)
         local quiet=true
+        ;;
+      -v|--verbose)
+        local verbose=0
         ;;
       --debug)
         DEBUG=1
@@ -104,9 +120,14 @@ parse_args() {
     KINDS=""
     NAMESPACES=""
   fi
-  readonly OUT_DIR=$(realpath ${out_dir:-${PWD}/k8s-backup/$prefix})
+  readonly OUT_DIR=${out_dir:-${PWD}/k8s-backup/$prefix}
   readonly SHOULD_ARCHIVE=${should_archive:-false}
   readonly QUIET=${quiet:-false}
+  if [ "$QUIET" == true ]; then
+      readonly VERBOSE=0
+  else
+      readonly VERBOSE=${verbose:-0}
+  fi
   readonly SHOULD_CHECK_LOGS_FOR_ERRORS=${should_check_logs_for_errors:-false}
   readonly LOG_DIR="${OUT_DIR}/logs"
   readonly RESOURCES_FILE="${OUT_DIR}/resources.yaml"
@@ -140,7 +161,7 @@ dump_logs_for_container() {
   local log_file_head="${LOG_DIR}/${namespace}/${pod}/${container}"
 
   local log_file="${log_file_head}.log"
-  kubectl logs --namespace="${namespace}" "${pod}" "${container}" \
+  run kubectl logs --namespace="${namespace}" "${pod}" "${container}" \
       > "${log_file}"
 
   local filter="?(@.name == \"${container}\")"
@@ -153,7 +174,7 @@ dump_logs_for_container() {
 
     local log_previous_file
     log_previous_file="${log_file_head}_previous.log"
-    kubectl logs --namespace="${namespace}" \
+    run kubectl logs --namespace="${namespace}" \
         --previous "${pod}" "${container}" \
         > "${log_previous_file}"
   fi
@@ -196,7 +217,7 @@ dump_kubernetes_resources() {
 
   mkdir -p "${OUT_DIR}"
   # Only works in Kubernetes 1.8.0 and above.
-  kubectl get --all-namespaces --export \
+  run kubectl get --all-namespaces \
       ${KINDS} \
       -o yaml > "${RESOURCES_FILE}"
 }
@@ -213,7 +234,7 @@ dump_custom_resource_definitions() {
       | sed 's/,$//')
 
   if [ ! -z "${custom_resources}" ]; then
-    kubectl get "${custom_resources}" --all-namespaces -o yaml \
+    run kubectl get "${custom_resources}" --all-namespaces -o yaml \
         > "${CUSTOM_RESOURCES_FILE}"
   fi
 }
@@ -223,9 +244,9 @@ dump_resources() {
   dump_custom_resource_definitions
 
   mkdir -p "${OUT_DIR}"
-  kubectl cluster-info dump > "${OUT_DIR}/cluster-info.dump.txt"
-  kubectl describe pods -n ${NAMESPACE} > "${OUT_DIR}/${NAMESPACE}-pods.txt"
-  kubectl get events --all-namespaces -o wide > "${OUT_DIR}/events.txt"
+  run kubectl cluster-info dump > "${OUT_DIR}/cluster-info.dump.txt"
+  run kubectl describe --all-namespaces pods  > "${OUT_DIR}/all-pods.txt"
+  run kubectl get events --all-namespaces -o wide > "${OUT_DIR}/events.txt"
 }
 
 archive() {
@@ -252,7 +273,7 @@ setup_output() {
   fi
 
   if [ "$_PREV_CONTEXT" != "$CONTEXT" ] ; then
-      kubectl config use-context $CONTEXT
+      run kubectl config use-context $CONTEXT
   fi
 
   if [ -z "$NAMESPACES" ]; then
@@ -263,6 +284,9 @@ setup_output() {
   if [ -z "$KINDS" ]; then
       KINDS=all,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,secrets,events,pvc
   fi
+  if [ -z ${OUT_DIR} ]; then
+      error_out "Output Directory not set"
+  fi
   mkdir -p ${OUT_DIR}
   cd ${OUT_DIR}
   touch manifest.txt
@@ -271,8 +295,7 @@ setup_output() {
 dump_by_namespace_and_kind() {
   local namespace
   local skip_replicaset
-  echo $KINDS | grep -E -q "(\brs\b|replicaset)"
-  skip_replicaset=$?
+  _rs=$(echo $KINDS | grep -E -q "(\brs\b|replicaset)" || skip_replicaset=1 )
   for namespace in $NAMESPACES; do
     log "Getting namespace ${namespace}"
     mkdir -p $namespace
@@ -289,26 +312,27 @@ dump_by_namespace_and_kind() {
         mkdir -p ${namespace}/${kind}
       fi
       echo ${namespace}/${n}.yaml >> manifest.txt
-      kubectl get $kind $item -n ${namespace} --export -o yaml > ${namespace}/${n}.yaml
+      run kubectl get $kind $item -n ${namespace} -o yaml > ${namespace}/${n}.yaml
     done
   done
 }
 
 main() {
   local exit_code=0
-  parse_args "$@"
-  setup_output
-  check_prerequisites kubectl
-  dump_time
+  run parse_args "$@"
+  run setup_output
+  run check_prerequisites kubectl
+  run dump_time
   if [ "${DUMP_ALL_RESOURCES}" -eq 1 ]; then
-    dump_resources
+    run dump_resources
   fi
   if [ "${DUMP_BY_NAMESPACE}" -eq 1 ]; then
-    dump_by_namespace_and_kind
+    run dump_by_namespace_and_kind
   fi
-  tap_containers dump_logs_for_container
-  exit_code=$?
-
+  if [ "$NO_LOGS" != 1 ]; then
+      run tap_containers dump_logs_for_container
+      exit_code=$?
+  fi
   if [ "${SHOULD_CHECK_LOGS_FOR_ERRORS}" = true ]; then
     if ! check_logs_for_errors; then
       exit_code=255
