@@ -167,3 +167,12 @@ _demo_log_colors() {
     echo_warn  "This is a warning message"
     echo_debug "This is a debug message"
 }
+
+# Make python history work in virualenvs
+python () {
+    if [ "$#" -eq 0 ]; then
+        PYTHONSTARTUP=~/.pythonrc $(type -P python)
+    else
+        $(type -P python) "$@"
+    fi
+}
