@@ -56,6 +56,28 @@ PREFIX="${PREFIX:-/usr/local/bin}"
 AWS_CLUSTER_NAME="${AWS_CLUSTER_NAME:-""}"
 AWS_REGION="${AWS_REGION:-$(aws configure get region)}"
 
+
+
+get_os_type() {
+    case "$OSTYPE" in
+        darwin* )
+        OS_STRING="darwin"
+        ;;
+        linux-gnu|freebsd*)
+        OS_STRING="linux"
+        ;;
+        cygwin | msys | mingw | win32 )
+        OS_STRING="window"
+        ;;
+        * )
+        echo "OSTYPE=$OSTYPE unknow not able to proceed"
+        exit 1
+        ;;
+    esac
+}
+
+get_os_type
+
 print_out() {
     echo -e '\E[32m'"$@"'\E[0m'
 }
@@ -72,7 +94,7 @@ fi
 
 if ! which kubectl 2>&1 > /dev/null ; then
     # Add kubectl and clean up
-    curl -L https://storage.googleapis.com/kubernetes-release/release/v$KUBE_VERSION/bin/linux/amd64/kubectl \
+    curl -L https://storage.googleapis.com/kubernetes-release/release/v$KUBE_VERSION/bin/${OS_STRING}/amd64/kubectl \
      -o ${TMPDIR}/kubectl && \
     chmod +x ${TMPDIR}/kubectl
     mv  ${TMPDIR}/kubectl "${PREFIX}/"
@@ -82,7 +104,7 @@ fi
 if ! which aws-iam-authenticator 2>&1 > /dev/null ; then
     # Get aws-iam-authenticator
     curl -L -o ${TMPDIR}/aws-iam-authenticator\
-         https://amazon-eks.s3-us-west-2.amazonaws.com/1.11.5/2018-12-06/bin/linux/amd64/aws-iam-authenticator
+         https://amazon-eks.s3-us-west-2.amazonaws.com/1.12.7/2019-03-27/bin/${OS_STRING}/amd64/aws-iam-authenticator
     chmod +x ${TMPDIR}/aws-iam-authenticator
     mv ${TMPDIR}/aws-iam-authenticator "${PREFIX}/"
 fi
