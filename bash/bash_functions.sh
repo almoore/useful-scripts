@@ -176,3 +176,13 @@ python () {
         $(type -P python) "$@"
     fi
 }
+
+function tsh {
+    host=$1
+    session_name=$2
+    if [ -z "$session_name" ]; then
+        echo "Need to provide session-name. Example: tsh <hostname> main"
+        return 1;
+    fi
+    ssh -X $host -t "tmux -CC attach -t $session_name || tmux -CC new -s $session_name"
+}
