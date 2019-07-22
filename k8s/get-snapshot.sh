@@ -66,6 +66,7 @@ parse_args() {
     case "${1}" in
       -n|--namespaces)
         shift
+        DUMP_BY_NAMESPACE=1
         NAMESPACES="$NAMESPACES $1"
         ;;
       -k|--kinds)

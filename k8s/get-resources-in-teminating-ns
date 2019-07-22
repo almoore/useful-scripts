@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+print_green() {
+    GREEN="\033[1;32m"
+    NOCOLOR="\033[0m"
+    printf "${GREEN}%b${NOCOLOR}\n" "$*"
+}
+
+for ns in `kubectl get ns --field-selector status.phase=Terminating -o name | cut -d/ -f2`; do
+  print_green "apiservice under namespace [$ns]:"
+  kubectl get apiservice -o json |jq --arg ns "$ns" '.items[] |select(.spec.service.namespace != null) | select(.spec.service.namespace == $ns) | .metadata.name ' --raw-output
+  print_green "api resources under namespace [$ns]:"
+  for resource in `kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get -o name -n $ns`; do 
+    echo $resource
+  done;
+done
