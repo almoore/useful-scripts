@@ -31,6 +31,7 @@ def parse_args():
                         default=False, help='Turn on debug logging.')
     return parser.parse_args()
 
+
 def get_os_path(git_remote):
     try:
         g = parse(git_remote)

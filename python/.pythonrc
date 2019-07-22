@@ -1,6 +1,45 @@
+#!/usr/bin/env python
 import atexit, os, readline, sys
 if sys.version_info >= (3, 0) and hasattr(sys, 'real_prefix'): # in a VirtualEnv
     PYTHON_HISTORY_FILE = os.path.join(os.environ['HOME'], '.python_history')
     if os.path.exists(PYTHON_HISTORY_FILE):
         readline.read_history_file(PYTHON_HISTORY_FILE)
         atexit.register(readline.write_history_file, PYTHON_HISTORY_FILE)
+
+
+if os.environ.get("USEFUL_SCRIPTS"):
+    sys.path.append(os.environ.get("USEFUL_SCRIPTS")+'/python')
+
+#sys.ps1='\x1b[1;49;33m>>>\x1b[0m '  # bright yellow
+#sys.ps2='\x1b[1;49;31m...\x1b[0m '  # bright red
+
+if 'get_history' not in globals():
+    import readline
+    def get_history(tail=-1):
+        length = readline.get_current_history_length()
+        start = length if tail==-1 else length-tail
+        for i in range(readline.get_current_history_length()):
+            yield readline.get_history_item(i + 1)
+
+
+if 'history' not in globals():
+    def history(tail=-1):
+        hist = get_history(tail)
+        for i in hist:
+            print(i)
+
+
+if 'save_history' not in globals():
+    def save_history(filename, tail=-1):
+        hist = list(get_history(tail))
+        with open(filename, 'w') as stream:
+            stream.write("\n".join(hist))
+
+
+def jp(data, **kwargs):
+    """
+    A simple wrapper for json.dumps
+    """
+    import json
+    indent = kwargs.pop("indent", 2)
+    print(json.dumps(data, indent=indent, **kwargs))
