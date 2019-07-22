@@ -19,6 +19,6 @@ if nadjectives:
 else:
     words.extend([random.choice(adverbs), random.choice(verbs), random.choice(adjectives), random.choice(adjectives), random.choice(nouns)])
 
-sentence = ' '.join(words)
+sentence = '-'.join(words).replace(' ', '-')
 
 print(sentence)
