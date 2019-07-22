@@ -12,6 +12,7 @@ echo -e "$USAGE"
 while [ "$1" != "" ] ; do
     case $1 in
         -u | --user )
+            shift
             USER=$1
         ;;
         *)
