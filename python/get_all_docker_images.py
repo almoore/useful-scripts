@@ -8,7 +8,7 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('reg_name', action='store', help='The regisrty to query')
+    parser.add_argument('reg_name', action='store', help='The registry to query')
     parser.add_argument('--no-paginate', action='store_false', dest="paginate",
                         default=True, help='Turn of pagination of image tags')
     return parser.parse_args()
