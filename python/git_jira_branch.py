@@ -37,6 +37,8 @@ def parse_args():
                         help='The location to read conf data from')
     parser.add_argument('--url', default=os.environ.get("JIRA_URL"),
                         help='The jira url')
+    parser.add_argument('--profile', default=os.environ.get("JIRA_PROFILE", "default"),
+                        help='The jira profile')
     return parser.parse_args()
 
 
@@ -91,7 +93,8 @@ def get_conf(conf_path):
 
 
 def auth(args):
-    conf = get_conf(conf_path=args.conf)
+    full_conf = get_conf(conf_path=args.conf)
+    conf = full_conf.get(args.profile, {})
     conf_orig = conf.copy()
     url = args.url
     if not conf.get("url"):
@@ -105,10 +108,12 @@ def auth(args):
         keyring.set_password(conf["url"], conf["username"], conf["password"])
         _conf = { k: v for k, v in conf.items() if k != "password"}
         if conf_orig != _conf:
-            save_conf(conf_path=args.conf, conf=_conf)
+            full_conf[args.profile] = _conf
+            save_conf(conf_path=args.conf, conf=full_conf)
     else:
         if conf_orig != conf:
-            save_conf(conf_path=args.conf, conf=conf)
+            full_conf[args.profile] = conf
+            save_conf(conf_path=args.conf, conf=full_conf)
     return conf
 
 
@@ -129,10 +134,24 @@ def run(command):
 def run_command(command):
     """
     Get output from command printed to stdout
-    :param command:
+    :param command: the command to run in the shell
     """
     for line in run(command):
         print(line)
+
+
+def replaceMultiple(main_string, replacements, new_string):
+    """
+    Replace a set of multiple sub strings with a new string in main string.
+    :param 
+    """
+    # Iterate over the strings to be replaced
+    for elem in replacements :
+        # Check if string is in the main string
+        if elem in main_string :
+            # Replace the string
+            mainString = main_string.replace(elem, new_string)
+    return  mainString
 
 
 def main():
@@ -142,7 +161,8 @@ def main():
     try:
         issue = jira.issue(args.issue)
         summary = str(issue.fields.summary)
-        branch_name = "{id}-{desc}".format(id=issue, desc=summary.replace(' ', '-')).lower()
+        slug = replaceMultiple(summary, [' ', '/', '@'], '-').lower()
+        branch_name = "{id}-{desc}".format(id=issue, desc=slug)
         run_command("git branch {}".format(branch_name))
         run_command("git checkout {}".format(branch_name))
     except JIRAError as e:
