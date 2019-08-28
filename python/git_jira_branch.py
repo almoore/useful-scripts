@@ -39,6 +39,8 @@ def parse_args():
                         help='The jira url')
     parser.add_argument('--profile', default=os.environ.get("JIRA_PROFILE", "default"),
                         help='The jira profile')
+    parser.add_argument('-v', '--verbose', default=False, action='store_true',
+                        help='More verbose logging')
     return parser.parse_args()
 
 
@@ -131,11 +133,13 @@ def run(command):
         yield line.decode('utf-8')
 
 
-def run_command(command):
+def run_command(command, verbose=False):
     """
     Get output from command printed to stdout
     :param command: the command to run in the shell
     """
+    if verbose:
+        print(command)
     for line in run(command):
         print(line)
 
@@ -143,15 +147,15 @@ def run_command(command):
 def replaceMultiple(main_string, replacements, new_string):
     """
     Replace a set of multiple sub strings with a new string in main string.
-    :param 
+    :param
     """
     # Iterate over the strings to be replaced
     for elem in replacements :
         # Check if string is in the main string
         if elem in main_string :
             # Replace the string
-            mainString = main_string.replace(elem, new_string)
-    return  mainString
+            main_string = main_string.replace(elem, new_string)
+    return  main_string
 
 
 def main():
@@ -161,10 +165,14 @@ def main():
     try:
         issue = jira.issue(args.issue)
         summary = str(issue.fields.summary)
-        slug = replaceMultiple(summary, [' ', '/', '@'], '-').lower()
+        if args.verbose:
+            print("Got summary:", summary)
+        slug = replaceMultiple(summary, [' ', '/', '@', '&'], '-').lower()
+        if args.verbose:
+            print("Created slug:", slug)
         branch_name = "{id}-{desc}".format(id=issue, desc=slug)
-        run_command("git branch {}".format(branch_name))
-        run_command("git checkout {}".format(branch_name))
+        run_command("git branch {}".format(branch_name), verbose=args.verbose)
+        run_command("git checkout {}".format(branch_name), verbose=args.verbose)
     except JIRAError as e:
         print(e.text)
         pass
