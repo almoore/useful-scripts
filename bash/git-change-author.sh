@@ -5,6 +5,9 @@ read -r -d '' USAGE << EOU
 Usage: ${0##*/} old_email new_email
   This tool is meant to easily change
   the git history commit author. 
+
+Options:
+    -u USERNAME    The username to use 
 EOU
 echo -e "$USAGE"
 }
@@ -14,6 +17,10 @@ while [ "$1" != "" ] ; do
         -u | --user )
             shift
             USER=$1
+        ;;
+        -h | --help )
+            usage
+            exit
         ;;
         *)
             ARGS+=( $1 )
