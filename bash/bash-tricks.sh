@@ -57,6 +57,7 @@ alias urlhost='python3 -c "import sys, urllib.parse as up; print(up.urlparse(sys
 alias urlpath='python3 -c "import sys, urllib.parse as up; print(up.urlparse(sys.argv[1]).path)"'
 alias bsc='git add .; git commit -a -m "Bull Shit Commit"; git push origin master'
 alias stripcolors='sed -E "s/[[:cntrl:]]\[[0-9]{1,3}m//g"'
+alias history-nl='f() { local HISTTIMEFORMAT=$(echo -e "\r\e[K");history "${@}";};f "${@}"'
 
 # OSX stuff
 if [ "$OSTYPE" = "darwin" ]; then
@@ -76,6 +77,7 @@ if command -v git > /dev/null; then
     git config --global alias.diff-cached 'diff --cached'
     git config --global alias.ws 'rebase --whitespace=fix'
     git config --global alias.top 'rev-parse --show-toplevel'
+    git config --global alias.wip '!f() { git add .; git commit -a -m "WIP";};f'
 fi
 
 # Functions

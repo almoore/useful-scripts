@@ -7,6 +7,14 @@ if sys.version_info >= (3, 0) and hasattr(sys, 'real_prefix'): # in a VirtualEnv
         atexit.register(readline.write_history_file, PYTHON_HISTORY_FILE)
 
 
+
+# Get reload function
+if sys.version_info >= (3, 0) and  sys.version_info <= (3, 3):
+    from imp import reload
+elif sys.version_info >= (3, 4):
+    from importlib import reload
+
+
 if os.environ.get("USEFUL_SCRIPTS"):
     sys.path.append(os.environ.get("USEFUL_SCRIPTS")+'/python')
 

@@ -7,7 +7,7 @@ Script that searches the ssm parameter names for a string using
 USAGE:
    aws-ssm-find STRING
 EOU
-echo -e "$USAGE"
+echo -e "$USAGE" >&2
 }
 
 setup() {
@@ -44,7 +44,7 @@ main() {
     if [ "$DEBUG" = 1 ]; then
         set -x
     fi
-    echo "Sending query to aws ssm ..."
+    echo "Sending query to aws ssm ..." >&2
     TMP=$(mktemp)
     
     if [[ "$_QUERY" == "/"* ]] ; then

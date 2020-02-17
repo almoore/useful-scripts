@@ -10,7 +10,7 @@ rotationLockFileName=".rsync-rotation-lock"
 pathBakN="backup"
 nameBakN="backup"
 exclusionFileName="exclude.txt"
-# date iso                   (date "+%Y-%m-%d") 
+# date iso                   (date "+%Y-%m-%d")
 # date fully iso compliant   (date -u +"%Y-%m-%dT%H:%M:%SZ")
 date_ISO=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 logName="rsync-incremental-backup_${date_ISO}.log"
@@ -26,8 +26,11 @@ usage() {
     echo "         --debug     turn on debug output"
     echo "    -d | --depth     specify the depth to use in the backup rotation"
     echo "    -p | --prefix    specify the prefix to store the backup data"
+    echo "    -o | --options   pass options to rsync"
     echo ""
     echo "    -h | --help      print this message"
+    echo ""
+    echo "To exclude files or directories place them in a file called ${exclusionFileName}"
 }
 
 
@@ -43,6 +46,10 @@ while [ -n "${1}" ]; do
         -p | --prefix)
             shift
             pathBak0="${1}"
+            ;;
+        -o | --options)
+            shift
+            options="${1}"
             ;;
         -h | --help)
             usage
@@ -69,10 +76,10 @@ trap_caught()
     # Check rsync success
 	  writeToLog "Backup failed, try again later\n"
 	  rsyncFail=1
-    
+
     # Send the complete log file to destination
     mv ${logFile} ${logPath}
-    
+
     exit ${rsyncFail}
 }
 trap trap_caught SIGINT SIGTERM
@@ -128,7 +135,7 @@ done
 # Prepare main rsync configuration
 rsyncFlags="-achv --progress --timeout=${timeout} -W \
 --link-dest=${bak1}/ --log-file=${logFile} --exclude=${ownFolderPath} --chmod=+r \
---exclude-from=${exclusionFilePath}"
+--exclude-from=${exclusionFilePath} ${options}"
 
 # Prepare log rsync configuration
 logRsyncFlags="-rhv --remove-source-files --exclude=${logName} --log-file=${logFile}"

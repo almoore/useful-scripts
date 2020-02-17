@@ -19,14 +19,17 @@ clear formatting.
 
 includes: 
 - subprocess - ​Works with additional processes.
-- shlex - Lexical analysis of shell-style syntaxes.
 """
 
 from subprocess import Popen, PIPE
-import shlex
 
 
 def run(command):
+    """
+    Create a generator to a shell command with async output yielded
+    :param command:
+    :return:
+    """
     process = Popen(command, stdout=PIPE, shell=True)
     while True:
         line = process.stdout.readline().rstrip()
@@ -35,16 +38,19 @@ def run(command):
         yield line.decode('utf-8')
 
 
-def run_command(command):
-    process = Popen(shlex.split(command), stdout=PIPE)
-    while True:
-        output = process.stdout.readline().rstrip().decode('utf-8')
-        if output == '' and process.poll() is not None:
-            break
-        if output:
-            print(output.strip())
-    rc = process.poll()
-    return rc
+def run_command(command, verbose=False, dry=False):
+    """
+    Get output from command printed to stdout
+    :param command: the command to run in the shell
+    :param verbose: print command before executing it
+    :param dry: print command do not execute
+    """
+    if verbose or dry:
+        print(command)
+        if dry:
+            return
+    for line in run(command):
+        print(line)
 
 
 if __name__ == "__main__":
