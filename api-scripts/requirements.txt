@@ -1,0 +1,5 @@
+appdirs
+requests
+salt-pepper
+six
+stashy==0.3 -e git+https://github.com/cosmin/stashy/blob/master/setup.py

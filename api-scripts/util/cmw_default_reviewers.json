@@ -1,0 +1,302 @@
+{
+        "repository": {
+            "scmId": "git",
+            "forkable": true,
+            "name": "proto-catalog",
+            "links": {
+                "clone": [
+                    {
+                        "href": "ssh://git@p-bitbucket.imovetv.com/hydra/proto-catalog.git",
+                        "name": "ssh"
+                    }
+                ],
+                "self": [
+                    {
+                        "href": "http://p-bitbucket.imovetv.com/projects/HYDRA/repos/proto-catalog/browse"
+                    }
+                ]
+            },
+            "id": 1307,
+            "project": {
+                "description": "Client middleware",
+                "links": {
+                    "self": [
+                        {
+                            "href": "http://p-bitbucket.imovetv.com/projects/HYDRA"
+                        }
+                    ]
+                },
+                "id": 48,
+                "key": "HYDRA",
+                "type": "NORMAL",
+                "public": false,
+                "name": "CMW"
+            },
+            "public": false,
+            "state": "AVAILABLE",
+            "slug": "proto-catalog",
+            "statusMessage": "Available"
+        },
+        "reviewers": [
+            {
+                "displayName": "Shweta Patel",
+                "name": "shweta.patel@dish.com",
+                "links": {
+                    "self": [
+                        {
+                            "href": "http://p-bitbucket.imovetv.com/users/shweta.patel_dish.com"
+                        }
+                    ]
+                },
+                "id": 672,
+                "emailAddress": "shweta.patel@dish.com",
+                "active": true,
+                "type": "NORMAL",
+                "slug": "shweta.patel_dish.com"
+            },
+            {
+                "displayName": "Andrew Condon",
+                "name": "andrew.condon@dish.com",
+                "links": {
+                    "self": [
+                        {
+                            "href": "http://p-bitbucket.imovetv.com/users/andrew.condon_dish.com"
+                        }
+                    ]
+                },
+                "id": 2056,
+                "emailAddress": "andrew.condon@dish.com",
+                "active": true,
+                "type": "NORMAL",
+                "slug": "andrew.condon_dish.com"
+            },
+            {
+                "displayName": "Robert Haupt",
+                "name": "bob.haupt@sling.com",
+                "links": {
+                    "self": [
+                        {
+                            "href": "http://p-bitbucket.imovetv.com/users/bob.haupt_sling.com"
+                        }
+                    ]
+                },
+                "id": 746,
+                "emailAddress": "bob.haupt@sling.com",
+                "active": true,
+                "type": "NORMAL",
+                "slug": "bob.haupt_sling.com"
+            },
+            {
+                "displayName": "Mithunraj Nanjegowda",
+                "name": "mithunraj.nanjegowda@sling.com",
+                "links": {
+                    "self": [
+                        {
+                            "href": "http://p-bitbucket.imovetv.com/users/mithunraj.nanjegowda_sling.com"
+                        }
+                    ]
+                },
+                "id": 2604,
+                "emailAddress": "mithunraj.nanjegowda@sling.com",
+                "active": true,
+                "type": "NORMAL",
+                "slug": "mithunraj.nanjegowda_sling.com"
+            },
+            {
+                "displayName": "Ryan Gorsuch",
+                "name": "ryan.gorsuch@dish.com",
+                "links": {
+                    "self": [
+                        {
+                            "href": "http://p-bitbucket.imovetv.com/users/ryan.gorsuch_dish.com"
+                        }
+                    ]
+                },
+                "id": 239,
+                "emailAddress": "ryan.gorsuch@dish.com",
+                "active": true,
+                "type": "NORMAL",
+                "slug": "ryan.gorsuch_dish.com"
+            },
+            {
+                "displayName": "Lou Zirkel",
+                "name": "louis.zirkel@sling.com",
+                "links": {
+                    "self": [
+                        {
+                            "href": "http://p-bitbucket.imovetv.com/users/louis.zirkel_sling.com"
+                        }
+                    ]
+                },
+                "id": 720,
+                "emailAddress": "louis.zirkel@sling.com",
+                "active": true,
+                "type": "NORMAL",
+                "slug": "louis.zirkel_sling.com"
+            },
+            {
+                "displayName": "Jason Reicheneker",
+                "name": "jason.reicheneker@dish.com",
+                "links": {
+                    "self": [
+                        {
+                            "href": "http://p-bitbucket.imovetv.com/users/jason.reicheneker_dish.com"
+                        }
+                    ]
+                },
+                "id": 240,
+                "emailAddress": "jason.reicheneker@dish.com",
+                "active": true,
+                "type": "NORMAL",
+                "slug": "jason.reicheneker_dish.com"
+            },
+            {
+                "displayName": "Kayhan Karatekeli",
+                "name": "kayhan.karatekeli@dish.com",
+                "links": {
+                    "self": [
+                        {
+                            "href": "http://p-bitbucket.imovetv.com/users/kayhan.karatekeli_dish.com"
+                        }
+                    ]
+                },
+                "id": 496,
+                "emailAddress": "kayhan.karatekeli@dish.com",
+                "active": true,
+                "type": "NORMAL",
+                "slug": "kayhan.karatekeli_dish.com"
+            },
+            {
+                "displayName": "Ethan Young",
+                "name": "ethan.young@dish.com",
+                "links": {
+                    "self": [
+                        {
+                            "href": "http://p-bitbucket.imovetv.com/users/ethan.young_dish.com"
+                        }
+                    ]
+                },
+                "id": 2225,
+                "emailAddress": "ethan.young@dish.com",
+                "active": true,
+                "type": "NORMAL",
+                "slug": "ethan.young_dish.com"
+            },
+            {
+                "displayName": "Jason Palmer",
+                "name": "jason.palmer@dish.com",
+                "links": {
+                    "self": [
+                        {
+                            "href": "http://p-bitbucket.imovetv.com/users/jason.palmer_dish.com"
+                        }
+                    ]
+                },
+                "id": 2611,
+                "emailAddress": "jason.palmer@dish.com",
+                "active": true,
+                "type": "NORMAL",
+                "slug": "jason.palmer_dish.com"
+            },
+            {
+                "displayName": "Nandeshwa Sah",
+                "name": "nandeshwar.sah@dish.com",
+                "links": {
+                    "self": [
+                        {
+                            "href": "http://p-bitbucket.imovetv.com/users/nandeshwar.sah_dish.com"
+                        }
+                    ]
+                },
+                "id": 468,
+                "emailAddress": "nandeshwar.sah@dish.com",
+                "active": true,
+                "type": "NORMAL",
+                "slug": "nandeshwar.sah_dish.com"
+            },
+            {
+                "displayName": "Jordan Gates",
+                "name": "jordan.gates@sling.com",
+                "links": {
+                    "self": [
+                        {
+                            "href": "http://p-bitbucket.imovetv.com/users/jordan.gates_sling.com"
+                        }
+                    ]
+                },
+                "id": 343,
+                "emailAddress": "jordan.gates@sling.com",
+                "active": true,
+                "type": "NORMAL",
+                "slug": "jordan.gates_sling.com"
+            },
+            {
+                "displayName": "Srinu Balsu",
+                "name": "srinu.balsu@dish.com",
+                "links": {
+                    "self": [
+                        {
+                            "href": "http://p-bitbucket.imovetv.com/users/srinu.balsu_dish.com"
+                        }
+                    ]
+                },
+                "id": 184,
+                "emailAddress": "srinu.balsu@dish.com",
+                "active": true,
+                "type": "NORMAL",
+                "slug": "srinu.balsu_dish.com"
+            },
+            {
+                "displayName": "Roy Zhang",
+                "name": "roy.zhang@sling.com",
+                "links": {
+                    "self": [
+                        {
+                            "href": "http://p-bitbucket.imovetv.com/users/roy.zhang_sling.com"
+                        }
+                    ]
+                },
+                "id": 569,
+                "emailAddress": "roy.zhang@sling.com",
+                "active": true,
+                "type": "NORMAL",
+                "slug": "roy.zhang_sling.com"
+            },
+            {
+                "displayName": "Landon Poch",
+                "name": "landon.poch@sling.com",
+                "links": {
+                    "self": [
+                        {
+                            "href": "http://p-bitbucket.imovetv.com/users/landon.poch_sling.com"
+                        }
+                    ]
+                },
+                "id": 476,
+                "emailAddress": "landon.poch@sling.com",
+                "active": true,
+                "type": "NORMAL",
+                "slug": "landon.poch_sling.com"
+            }
+        ],
+        "fromRefMatcher": {
+            "displayId": "ANY_REF_MATCHER_ID",
+            "active": true,
+            "type": {
+                "id": "ANY_REF",
+                "name": "Any branch"
+            },
+            "id": "ANY_REF_MATCHER_ID"
+        },
+        "requiredApprovals": 1,
+        "toRefMatcher": {
+            "displayId": "master",
+            "active": true,
+            "type": {
+                "id": "BRANCH",
+                "name": "Branch"
+            },
+            "id": "refs/heads/master"
+        },
+        "id": 425
+}

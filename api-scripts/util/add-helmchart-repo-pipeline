@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+START_DIR=${PWD}
+SCRIPT_DIR=$(cd $(dirname ${BASH_SOURCE[0]}); echo $PWD)
+BASE_DIR=${SCRIPT_DIR%/*}
+REPO_NAME="${1}"
+REPO_DIR="${REPO_NAME}"
+
+die() {
+    if [ ! -z "${1}" ]; then
+        echo -e "${1}"
+    fi
+    exit 1
+}
+if [ -z "${REPO_NAME}" ]; then
+    die "\nERROR: Must pass in the REPO NAME\n"
+fi
+
+# Exit if there is an error
+set -e
+# 1 Create Repo in bitbucket and add permissions
+python ${BASE_DIR}/util/bitbucket-create-repo.py ${REPO_NAME} --project k8s
+python ${BASE_DIR}/util/bitbucket-update-permissions.py --name ${REPO_NAME} --project k8s --default-branch master
+
+# 2 Add Readme.md Jenkinsfile, name, version files to repo
+if [ ! -d "${REPO_NAME}" ]; then
+    git clone ssh://git@p-bitbucket.imovetv.com:7999/k8s/${REPO_NAME}.git
+fi
+
+cd ${REPO_DIR}
+cat <<EOF > README.md
+${REPO_NAME}
+============
+A helm state formula repo.
+EOF
+cat <<EOF > Jenkinsfile
+k8sBuild {}
+EOF
+echo $REPO_NAME > name
+echo "1.0" > version
+# Only commit if there are changes
+STATUS=$(git status --porcelain)
+if [ ! -z "${STATUS}" ]; then
+    git add --all
+    git commit -m "Initial commit"
+    git push
+fi
+
+cd ${START_DIR}
+# 3 Create Jenkins Multi-branch pipeline job
+echo "Create Jenkins Multi-branch pipeline job"
+bash ${BASE_DIR}/jenkins/jenkins_pipeline_config.sh ${REPO_NAME}
+# 4 Add hooks to  bitbucket
+echo "Updating hooks on bitbucket"
+python ${BASE_DIR}/hooks/bitbucket-update-hooks.py --name ${REPO_NAME} --project k8s --branches \*
