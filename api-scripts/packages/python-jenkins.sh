@@ -1,0 +1,5 @@
+#!/bin/sh
+
+PYTHON_JENKINS_VERSION=${PYTHON_JENKINS_VERSION:="0.4.13"}
+
+pip install python-jenkins==${PYTHON_JENKINS_VERSION}

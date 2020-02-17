@@ -1,0 +1,68 @@
+{
+    "sourceMatcher": {
+        "id": "ANY_REF_MATCHER_ID",
+        "displayId": "ANY_REF_MATCHER_ID",
+        "type": {
+            "id": "ANY_REF",
+            "name": "Any branch"
+        },
+        "active": true
+    },
+    "targetMatcher": {
+        "id": "refs/heads/prod",
+        "displayId": "prod",
+        "type": {
+            "id": "BRANCH",
+            "name": "Branch"
+        },
+        "active": true
+    },
+    "reviewers": [
+        {
+            "name": "larry.draper@sling.com",
+            "emailAddress": "larry.draper@sling.com",
+            "id": 693,
+            "displayName": "Larry Draper",
+            "active": true,
+            "slug": "larry.draper_sling.com",
+            "type": "NORMAL"
+        },
+        {
+            "name": "erik.heppler@sling.com",
+            "emailAddress": "erik.heppler@sling.com",
+            "id": 517,
+            "displayName": "Erik Heppler",
+            "active": true,
+            "slug": "erik.heppler_sling.com",
+            "type": "NORMAL"
+        },
+        {
+            "name": "derrick.walton@sling.com",
+            "emailAddress": "derrick.walton@sling.com",
+            "id": 424,
+            "displayName": "Derrick Walton",
+            "active": true,
+            "slug": "derrick.walton_sling.com",
+            "type": "NORMAL"
+        },
+        {
+            "name": "scott.heppler@sling.com",
+            "emailAddress": "scott.heppler@sling.com",
+            "id": 536,
+            "displayName": "Scott Heppler",
+            "active": true,
+            "slug": "scott.heppler_sling.com",
+            "type": "NORMAL"
+        },
+        {
+            "name": "scott.hayes@echostar.com",
+            "emailAddress": "scott.hayes@echostar.com",
+            "id": 378,
+            "displayName": "Scott Hayes",
+            "active": true,
+            "slug": "scott.hayes_echostar.com",
+            "type": "NORMAL"
+        }
+    ],
+    "requiredApprovals": 1
+}

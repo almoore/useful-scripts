@@ -1,0 +1,49 @@
+#!/bin/bash
+#set -x
+if [ ! -z "$1" ]; then
+    REPO_NAME="$(echo "${1}" | sed 's|/\{1,\}$||')"
+    DEST="${REPO_NAME}/Jenkinsfile"
+
+    basedir=$(echo "${0}" | sed 's|[^/]*$||g')
+
+    if [ ! -e "${REPO_NAME}" ]
+    then
+        echo "${REPO_NAME}" > "${REPO_NAME}/name"
+    fi
+    if [ ! -e "${REPO_NAME}" ]
+    then
+        echo "1.0" > "${REPO_NAME}/version"
+    fi
+
+    if [ ! -e "${REPO_NAME}/.gitignore" ]
+    then
+        cat > "${REPO_NAME}/.gitignore" <<EOF
+.DS_Store
+.vagrant
+.idea
+*.pyc
+
+pkg/
+*.deb
+update-git.json
+update-state.json
+check-version.json
+manifest.sh
+
+# Editor save files
+.#*
+.*#
+\#*
+*~
+.*.sw[a-z]
+.*~
+EOF
+    fi
+
+    if [ ! -e "${REPO_NAME}/Jenkinsfile" ]
+    then
+        cat > $DEST <<EOF
+saltBuild {}
+EOF
+    fi
+fi
