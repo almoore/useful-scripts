@@ -21,13 +21,18 @@ npy() {
         unset npyd
     }
     TMP=$(mktemp)
+    OLDIFS=$IFS
     IFS=':'
     for p in $PATH; do
         if ! echo $p | grep -q "pyenv"; then
             grep -q "^$p$" $TMP || echo $p >> $TMP
         fi
     done
-    IFS=$OLDIFS
+    if [ -z "$OLDIFS" ]; then
+        unset IFS
+    else
+        IFS=$OLDIFS
+    fi
     _FULLPATH=$PATH
     _NPYPATH=$(cat $TMP)
     PATH="$(echo $_NPYPATH | sed 's/\ /:/g')"

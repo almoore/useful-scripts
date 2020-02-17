@@ -1,12 +1,13 @@
 #!/bin/bash
 #set -e
+#set -x
 
 BASE=$PWD
 GC="\033[1;32m"
 EC="\033[1;0m"
 
-if [ -z "${DIRS}" ]; then 
-    DIRS=$(find ${PWD} -maxdepth 1 -type d)
+if [ -z "${DIRS}" ]; then
+    DIRS=$(find -L ${PWD} -maxdepth 1 -type d)
 fi
 
 printgreen() {

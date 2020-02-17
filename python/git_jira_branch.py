@@ -14,6 +14,7 @@ from subprocess import Popen, PIPE
 import contextlib
 import shutil
 import tempfile
+import re
 
 try:
     from jira import JIRA, JIRAError
@@ -41,6 +42,8 @@ def parse_args():
                         help='The jira profile')
     parser.add_argument('-v', '--verbose', default=False, action='store_true',
                         help='More verbose logging')
+    parser.add_argument('-d', '--dry-run', default=False, action='store_true',
+                        help='Show what would be done, without making changes')
     return parser.parse_args()
 
 
@@ -104,6 +107,8 @@ def auth(args):
     if url is None and not conf.get("url"):
         conf["url"] = str(input('Enter your jira username: '))
     if HAS_KEYRING_PY and conf.get("username"):
+        if args.verbose:
+            print("Getting password from keyring {url}: {username}".format(**conf))
         conf["password"] = keyring.get_password(conf["url"], conf["username"])
     conf = get_user_auth_input(conf)
     if HAS_KEYRING_PY and conf.get("password"):
@@ -133,21 +138,39 @@ def run(command):
         yield line.decode('utf-8')
 
 
-def run_command(command, verbose=False):
+def run_command(command, verbose=False, dry=False):
     """
     Get output from command printed to stdout
     :param command: the command to run in the shell
+    :param verbose: print command before executing it
+    :param dry: print command do not execute
     """
-    if verbose:
+    if verbose or dry:
         print(command)
+        if dry:
+            return
     for line in run(command):
         print(line)
 
 
-def replaceMultiple(main_string, replacements, new_string):
+def normalize_dashes(text: str):
+    """
+    Change multiple dashes in a row to one
+    :param text: input string
+    :return: a string with the dashes replaced
+    """
+    while '--' in text:
+        text = text.replace('--', '-')
+    return text
+
+
+def replace_multiple(main_string, replacements, new_string):
     """
     Replace a set of multiple sub strings with a new string in main string.
-    :param
+    :param main_string:
+    :param replacements:
+    :param new_string:
+    :return:
     """
     # Iterate over the strings to be replaced
     for elem in replacements :
@@ -155,24 +178,36 @@ def replaceMultiple(main_string, replacements, new_string):
         if elem in main_string :
             # Replace the string
             main_string = main_string.replace(elem, new_string)
-    return  main_string
+    return main_string
+
+
+def create_slug(text: str, lower=True):
+    s = normalize_dashes(re.sub('[^a-zA-Z0-9_-]', '-', text).strip('-'))
+    if lower:
+        s = s.lower()
+    return s
 
 
 def main():
     args = parse_args()
     conf = auth(args)
-    jira = JIRA(server=conf["url"], basic_auth=(conf["username"], conf["password"]))
     try:
+        jira = JIRA(server=conf["url"],
+                    basic_auth=(conf["username"], conf["password"]))
         issue = jira.issue(args.issue)
         summary = str(issue.fields.summary)
+        if args.dry_run:
+            print("DRY RUN: Command that would be run...")
         if args.verbose:
             print("Got summary:", summary)
-        slug = replaceMultiple(summary, [' ', '/', '@', '&'], '-').lower()
+        slug = create_slug(summary)
         if args.verbose:
             print("Created slug:", slug)
         branch_name = "{id}-{desc}".format(id=issue, desc=slug)
-        run_command("git branch {}".format(branch_name), verbose=args.verbose)
-        run_command("git checkout {}".format(branch_name), verbose=args.verbose)
+        run_command("git branch {}".format(branch_name),
+                    verbose=args.verbose, dry=args.dry_run)
+        run_command("git checkout {}".format(branch_name),
+                    verbose=args.verbose, dry=args.dry_run)
     except JIRAError as e:
         print(e.text)
         pass
