@@ -64,7 +64,7 @@ class DebianArtifact:
             return self.name > other.name
 
 def search_artifactory(aql):
-    headers = {'X-Jfrog-Art-Api': 'AKCp2WXCQNGPwYWZYCMHrGt4a3hx6NbUYiHBBkn1Mh337KWfVTuo3vSTNBtVMf8PS1Ajz22PG'}
+    headers = {'X-Jfrog-Art-Api': 'APIKEYHEREPLEASE'}
     r = requests.post(url='http://p-artifactory.imovetv.com/artifactory/api/search/aql',
             headers=headers, data=aql)
     r.raise_for_status()
