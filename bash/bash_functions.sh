@@ -55,6 +55,10 @@ aws-switch() {
     esac
 }
 
+aws-profiles () {
+    cat ~/.aws/config | grep '\[' | sed 's/profile//g'| tr '[' ' ' | tr ']' ' '
+}
+
 #--- COMPDEF ------------------------------------------------------------------#
 #      FUNCTION: aws-switch
 #   DESCRIPTION: Switch the AWS profile
@@ -65,12 +69,8 @@ _aws_switch() {
     local curr_arg;
     curr_arg=${COMP_WORDS[COMP_CWORD]}
 
-     aws_profiles=$( \
-         grep '\[profile' ~/.aws/config \
-         | awk '{sub(/]/, "", $2); print $2}' \
-         | while read -r profile; do echo -n "$profile "; done \
-     )
-     COMPREPLY=( $(compgen -W "$aws_profiles" -- $curr_arg ) );
+     _aws_profiles=$(aws-profiles)
+     COMPREPLY=( $(compgen -W "$_aws_profiles" -- $curr_arg ) );
 }
  
 complete -F _aws_switch aws-switch
@@ -84,10 +84,6 @@ aws-profile () {
     else
         echo "default"
     fi
-}
-
-aws-profiles () {
-    cat ~/.aws/config | grep profile | cut -d ' ' -f2- | tr ']' ' '
 }
 
 #------------------------------------------------------------------------------#
@@ -190,4 +186,17 @@ function tsh {
         return 1;
     fi
     ssh -X $host -t "tmux -CC attach -t $session_name || tmux -CC new -s $session_name"
+}
+
+
+activate-vpn-cert() {
+    export SSL_CERT_DIR=${HOME}/.aws/certs
+    export SSL_CERT_FILE=${HOME}/.aws/certs/root.pem
+    export AWS_CA_BUNDLE=${HOME}/.aws/certs/root.pem
+}
+
+deactivate-vpn-cert() {
+    unset SSL_CERT_DIR
+    unset SSL_CERT_FILE
+    unset AWS_CA_BUNDLE
 }

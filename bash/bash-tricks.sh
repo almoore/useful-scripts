@@ -73,11 +73,13 @@ EOF
 fi
 
 if command -v git > /dev/null; then
+    if ! git config --list --global | grep -q alias.unstage; then
     git config --global alias.unstage 'reset --'
     git config --global alias.diff-cached 'diff --cached'
     git config --global alias.ws 'rebase --whitespace=fix'
     git config --global alias.top 'rev-parse --show-toplevel'
     git config --global alias.wip '!f() { git add .; git commit -a -m "WIP";};f'
+    fi
 fi
 
 # Functions
