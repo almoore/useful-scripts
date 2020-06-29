@@ -32,6 +32,7 @@ Options:
                               "k8s-backup/<prefix-dir>"
   -z, --archive            if present, archives and removes the output
                               directory
+  -L, --no-logs            if present, do not fetch logs of the containers
   -q, --quiet              if present, do not log
   --error-if-nasty-logs    if present, exit with 255 if any logs
                               contain errors
@@ -217,10 +218,12 @@ dump_kubernetes_resources() {
   log "Retrieving kubernetes resource configurations"
 
   mkdir -p "${OUT_DIR}"
+  pushd "${OUT_DIR}"
   # Only works in Kubernetes 1.8.0 and above.
   run kubectl get --all-namespaces \
       ${KINDS} \
       -o yaml > "${RESOURCES_FILE}"
+  popd
 }
 
 dump_custom_resource_definitions() {
@@ -289,13 +292,13 @@ setup_output() {
       error_out "Output Directory not set"
   fi
   mkdir -p ${OUT_DIR}
-  cd ${OUT_DIR}
-  touch manifest.txt
+  touch ${OUT_DIR}/manifest.txt
 }
 
 dump_by_namespace_and_kind() {
   local namespace
   local skip_replicaset
+  pushd "${OUT_DIR}"
   _rs=$(echo $KINDS | grep -E -q "(\brs\b|replicaset)" || skip_replicaset=1 )
   for namespace in $NAMESPACES; do
     log "Getting namespace ${namespace}"
@@ -316,6 +319,7 @@ dump_by_namespace_and_kind() {
       run kubectl get $kind $item -n ${namespace} -o yaml > ${namespace}/${n}.yaml
     done
   done
+  popd
 }
 
 main() {
@@ -324,11 +328,13 @@ main() {
   run setup_output
   run check_prerequisites kubectl
   run dump_time
+  
   if [ "${DUMP_ALL_RESOURCES}" -eq 1 ]; then
     run dump_resources
-  fi
-  if [ "${DUMP_BY_NAMESPACE}" -eq 1 ]; then
+  elif [ "${DUMP_BY_NAMESPACE}" -eq 1 ]; then
     run dump_by_namespace_and_kind
+  else
+    echo "WARNING: did not specify --all or --namepaces no resource config fetched"
   fi
   if [ "$NO_LOGS" != 1 ]; then
       run tap_containers dump_logs_for_container
