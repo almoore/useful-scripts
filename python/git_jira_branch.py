@@ -65,6 +65,7 @@ def save_conf(conf_path, conf):
         copy(conf_path, bk_name)
     try:
         save_json(conf_path, conf)
+        print("Wrote conf file to {}".format(conf_path))
     except Exception as e:
         # print error and restore backup
         print('Got error while saving config {} ERROR: {}'.format(conf_path, e))
@@ -105,7 +106,7 @@ def auth(args):
     if not conf.get("url"):
         conf["url"] = url
     if url is None and not conf.get("url"):
-        conf["url"] = str(input('Enter your jira username: '))
+        conf["url"] = str(input('Enter your jira url: '))
     if HAS_KEYRING_PY and conf.get("username"):
         if args.verbose:
             print("Getting password from keyring {url}: {username}".format(**conf))
