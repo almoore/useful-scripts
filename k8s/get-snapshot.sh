@@ -42,8 +42,8 @@ EOF
 }
 
 run() {
-    if [ "VERBOSE" == 1 ]; then
-        printf "+%b\n" "$@" 1>&2
+    if [ "$VERBOSE" == 1 ]; then
+        printf "+%b\n" "$*" 1>&2
     fi
     "$@"
 }
@@ -102,7 +102,7 @@ parse_args() {
         local quiet=true
         ;;
       -v|--verbose)
-        local verbose=0
+        local verbose=1
         ;;
       --debug)
         DEBUG=1
@@ -218,12 +218,10 @@ dump_kubernetes_resources() {
   log "Retrieving kubernetes resource configurations"
 
   mkdir -p "${OUT_DIR}"
-  pushd "${OUT_DIR}"
   # Only works in Kubernetes 1.8.0 and above.
   run kubectl get --all-namespaces \
       ${KINDS} \
       -o yaml > "${RESOURCES_FILE}"
-  popd
 }
 
 dump_custom_resource_definitions() {
@@ -244,13 +242,13 @@ dump_custom_resource_definitions() {
 }
 
 dump_resources() {
+  run mkdir -p "${OUT_DIR}"
   dump_kubernetes_resources
   dump_custom_resource_definitions
-
-  mkdir -p "${OUT_DIR}"
   run kubectl cluster-info dump > "${OUT_DIR}/cluster-info.dump.txt"
   run kubectl describe --all-namespaces pods  > "${OUT_DIR}/all-pods.txt"
   run kubectl get events --all-namespaces -o wide > "${OUT_DIR}/events.txt"
+  dump_by_namespace_and_kind
 }
 
 archive() {
