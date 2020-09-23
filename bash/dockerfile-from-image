@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 IMAGE=$1
-docker history $IMAGE  --no-trunc --human=true --format "{{.CreatedBy}}" | tail -n 1000 -r | \
+TAIL_CMD=${TAIL_CMD:-/usr/bin/tail}
+docker history $IMAGE  --no-trunc --human=true --format "{{.CreatedBy}}" | $TAIL_CMD -n 1000 -r | \
     sed -e 's|/bin/sh -c #(nop)  ||g' \
         -e 's|/bin/sh -c #(nop) ||g' \
         -e 's|/bin/sh -c|RUN|g'
