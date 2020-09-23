@@ -200,3 +200,11 @@ deactivate-vpn-cert() {
     unset SSL_CERT_FILE
     unset AWS_CA_BUNDLE
 }
+
+# https://gitlab.com/gnachman/iterm2/-/wikis/Status-Bar-Tips
+test -e "${HOME}/.iterm2_shell_integration.bash" && source "${HOME}/.iterm2_shell_integration.bash"
+function iterm2_print_user_vars() {
+  iterm2_set_user_var AWS_PROFILE "${AWS_PROFILE:-default}"
+  iterm2_set_user_var K8S_CONTEXT "$(kubectl config current-context || "None")"
+}
+
