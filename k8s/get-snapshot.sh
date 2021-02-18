@@ -36,6 +36,7 @@ Options:
   -q, --quiet              if present, do not log
   --error-if-nasty-logs    if present, exit with 255 if any logs
                               contain errors
+  -C, --continue           Continue even if errors are present
   --debug                  turn on debug logging
 
 EOF
@@ -109,6 +110,9 @@ parse_args() {
         ;;
       --error-if-nasty-logs)
         local should_check_logs_for_errors=true
+        ;;
+      -C|--continue)
+        set +e
         ;;
       *)
         usage
@@ -305,6 +309,10 @@ dump_by_namespace_and_kind() {
     for n in $(kubectl get $KINDS -o name -n ${namespace} ${SELECTOR}); do
       kind=$(dirname $n)
       item=$(basename $n)
+      if [ "${DUMP_ALL_RESOURCES}" -eq 1 ] && echo ${kind} | grep -q customresourcedefinition ; then
+          # echo "Skipping kind: ${kind} for namespace: ${namespace}"
+          continue
+      fi
       if [ "${skip_replicaset}" == 1 ] && echo ${kind} | grep -q replicaset ; then
         continue
       fi
