@@ -2,6 +2,7 @@
 # Bumps the semantic version of the git-project.
 # If no semantic version tags exist in the project, the version starts out at v0.0.0
 # and is incremented by one for the field indicated by the bump command argument.
+PREFIX=${PREFIX:-v}
 
 find_latest_semver() {
   pattern="^$PREFIX([0-9]+\.[0-9]+\.[0-9]+)\$"
