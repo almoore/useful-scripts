@@ -22,6 +22,10 @@ setup() {
       --debug )
         DEBUG=1
         ;;
+      --region )
+        shift
+        REGION="--region $1"
+        ;;
       -h | --help )
         usage
         exit
@@ -48,11 +52,11 @@ main() {
     TMP=$(mktemp)
     
     if [[ "$_QUERY" == "/"* ]] ; then
-        aws ssm get-parameters-by-path --path "$_QUERY" > $TMP
+        aws ssm get-parameters-by-path --path "$_QUERY" $REGION > $TMP
     elif [ ! -z "$_PATH" ] ; then
-        aws ssm get-parameters-by-path --path "$_PATH" > $TMP
+        aws ssm get-parameters-by-path --path "$_PATH" $REGION > $TMP
     else
-        aws ssm describe-parameters > $TMP
+        aws ssm describe-parameters $REGION > $TMP
     fi
     if [ -z "$_QUERY" ]; then
         cat $TMP | jq '.'
