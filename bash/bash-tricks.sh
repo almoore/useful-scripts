@@ -22,6 +22,7 @@ alias gpod='git push origin development'
 alias grom='git reset --hard origin/master'
 alias gp='git pull'
 alias gpar='git pull --autostash --rebase'
+alias gpt='git push && git push --tags'
 
 # Env Overload
 alias utcdate='TZ=utc date'
