@@ -15,6 +15,7 @@ def get_conf(conf_path):
         print('Decoding JSON has failed: ' + conf_path)
     return conf
 
+
 def get_all_user_in_group(jira, group):
     params = {'groupname': group, 'expand': "users"}
     r = jira._get_json('group', params=params)
@@ -32,6 +33,7 @@ def get_all_user_in_group(jira, group):
     result = r['users']['items']
     return result
 
+
 def get_user(jira, id, accountId=None, expand=None):
     """Get a user Resource from the server.
 
@@ -47,6 +49,7 @@ def get_user(jira, id, accountId=None, expand=None):
         params['expand'] = expand
     user.find(id, params=params)
     return user
+
 
 def add_user_to_group(jira, accountId, group):
     """Add a user to an existing group.
@@ -76,10 +79,11 @@ def setup_jira_client():
     conf = full_conf.get(profile, {})
     return JIRA(server=conf["url"], basic_auth=(conf["username"], conf["password"]))
 
+
 def main():
     jira = setup_jira_client()
-    group = 'jira-software-users'
-    group_b = 'jira-browse-projects'
+    group = 'deloitte'
+    group_b = 'jira-sotware-users'
 
     users = get_all_user_in_group(jira, group)
     users_b = get_all_user_in_group(jira, group_b)
@@ -89,11 +93,6 @@ def main():
         if user not in users_b and u.accountType == "atlassian":
             add_user_to_group(jira, u.accountId, group_b)
             print(f"Added user {u.displayName} to {group_b}")
-
-
-    # Atlassian jira
-    jira = Jira(url=conf["url"], username=conf["username"], password=conf["password"])
-    jira.get_all_users_from_group(group)
 
 
 if __name__ == "__main__":

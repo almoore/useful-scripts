@@ -25,7 +25,6 @@ def clean_resource(resource):
         "uid",
         "resourceVersion",
         "generation",
-        "managedFields",
     ]
     del_annotations_keys = [
         "kubectl.kubernetes.io/last-applied-configuration",

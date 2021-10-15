@@ -99,10 +99,10 @@ _ECHO_DEBUG=${DEBUG:-1}
 #   DESCRIPTION:  Try to detect color support.
 #----------------------------------------------------------------------------------------------------------------------
 # If the BS_COLORS value is not set get it from tput
-_COLORS=${BS_COLORS:-$(tput colors 2>/dev/null ||  0)}
+_COLORS=${BS_COLORS:-$(tput colors 2>/dev/null || echo 0)}
 detect_color_support() {
     # shellcheck disable=SC2181
-    if [ $? -eq 0 ] && [ "$_COLORS" -gt 2 ]; then
+    if [ "$?" == "0" ] && [ "$_COLORS" -gt 2 ]; then
         BKC="\033[1;30m"
         RC="\033[1;31m"
         GC="\033[1;32m"
