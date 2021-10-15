@@ -252,7 +252,9 @@ dump_resources() {
   run kubectl cluster-info dump > "${OUT_DIR}/cluster-info.dump.txt"
   run kubectl describe --all-namespaces pods  > "${OUT_DIR}/all-pods.txt"
   run kubectl get events --all-namespaces -o wide > "${OUT_DIR}/events.txt"
-  dump_by_namespace_and_kind
+  if [ "${DUMP_BY_NAMESPACE}" -eq 1 ]; then
+      dump_by_namespace_and_kind
+  fi
 }
 
 archive() {
@@ -287,8 +289,11 @@ setup_output() {
       namespaces -o=jsonpath="{.items[*].metadata.name}")
   fi
 
+  # dynamically generate list of api resource kinds
+  # KINDS=$(kubectl api-resources -o name | tr '\n' ',' | sed s/,$//)
+
   if [ -z "$KINDS" ]; then
-      KINDS=all,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,secrets,events,pvc
+      KINDS=all,jobs,cronjobs,ingresses,endpoints,customresourcedefinitions,configmaps,secrets,configmap,events,pvc,serviceaccount,clusterrole,clusterrolebindings,storageclass
   fi
   if [ -z ${OUT_DIR} ]; then
       error_out "Output Directory not set"

@@ -208,3 +208,8 @@ function iterm2_print_user_vars() {
   iterm2_set_user_var K8S_CONTEXT "$(kubectl config current-context || "None")"
 }
 
+
+
+function jq_repl() {
+    echo ‘’ | fzf --print-query --preview "jq {q} ${1}"
+}
