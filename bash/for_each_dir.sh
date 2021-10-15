@@ -7,7 +7,7 @@ GC="\033[1;32m"
 EC="\033[1;0m"
 
 if [ -z "${DIRS}" ]; then
-    DIRS=$(find -L ${PWD} -maxdepth 1 -type d)
+    DIRS=$(find -L ${PWD} -maxdepth 1 -type d | grep -v -E "(.idea)")
 fi
 
 printgreen() {

@@ -4,6 +4,8 @@ AWS_REGION=${AWS_REGION:-$AWS_DEFAULT_REGION}
 if [ -z "$AWS_REGION" ];then
     AWS_REGION=$(aws configure get region)
 fi
-aws ecr get-login-password| docker login \
+CMD="aws ecr get-login-password| docker login \
   --username AWS \
-  --password-stdin ${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
+  --password-stdin ${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+echo $CMD
+eval $CMD
