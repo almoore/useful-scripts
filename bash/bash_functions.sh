@@ -193,12 +193,14 @@ activate-vpn-cert() {
     export SSL_CERT_DIR=${HOME}/.aws/certs
     export SSL_CERT_FILE=${HOME}/.aws/certs/root.pem
     export AWS_CA_BUNDLE=${HOME}/.aws/certs/root.pem
+    export PIP_CERT=${HOME}/.aws/certs/root.pem
 }
 
 deactivate-vpn-cert() {
     unset SSL_CERT_DIR
     unset SSL_CERT_FILE
     unset AWS_CA_BUNDLE
+    unset PIP_CERT
 }
 
 # https://gitlab.com/gnachman/iterm2/-/wikis/Status-Bar-Tips

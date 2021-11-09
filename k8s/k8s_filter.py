@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 k8s_filter: Command-line YAML processor - kubernetes YAML documents
