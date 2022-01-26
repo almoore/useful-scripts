@@ -1,0 +1,26 @@
+#!/bin/bash
+ARGS="$@"
+
+GC="\033[1;32m"
+YC="\033[1;33m"
+EC="\033[1;0m"
+printgreen() {
+    printf "${GC}%s$@${EC}\n";
+}
+printyellow() {
+    printf "${YC}%s$@${EC}\n";
+}
+
+# get all tls type secrets
+OUTPUT=$(kubectl ${ARGS} get secret -A | grep "kubernetes.io/tls")
+# get namespaces
+NAMESPACES=$(echo "$OUTPUT" | awk '{print $1}'|uniq)
+for namespace in ${NAMESPACES}; do
+    printyellow "Gathering Secrets in ${namespace}"
+    SECRETS=$(echo "$OUTPUT" | grep "^$namespace" | awk '{print $2}')
+    for secret in $SECRETS; do
+        printgreen "${namespace}/${secret}:"
+        kubectl ${ARGS} -n ${namespace} get secret ${secret} -o yaml| \
+            yq '.data["tls.crt"]' -r |base64 -d|openssl x509 -noout -dates
+    done
+done
