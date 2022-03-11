@@ -203,6 +203,8 @@ deactivate-vpn-cert() {
     unset PIP_CERT
 }
 
+toggle-vpn-cert() { test -n "$AWS_CA_BUNDLE" && deactivate-vpn-cert || activate-vpn-cert; }
+
 # https://gitlab.com/gnachman/iterm2/-/wikis/Status-Bar-Tips
 test -e "${HOME}/.iterm2_shell_integration.bash" && source "${HOME}/.iterm2_shell_integration.bash"
 function iterm2_print_user_vars() {
