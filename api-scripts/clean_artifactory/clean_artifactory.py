@@ -4,73 +4,18 @@ import requests
 import pprint
 from vercmp import debian_compare
 from retrying import retry
+import urllib3
+import os
+import argparse
+from artifactory_artifacts import DebianArtifact
 
-
-class DebianArtifact:
-    def __init__(self, name, repo, path, properties):
-        self.filename = name
-        self.repo = repo
-        self.properties = properties
-        self.path = path
-        self.name = properties["deb.name"]
-        self.version = properties["deb.version"]
-
-    def as_dict(self):
-        return {
-            "filename": self.filename,
-            "repo": self.repo,
-            "properties": self.properties,
-            "path": self.path,
-            "name": self.name,
-            "version": self.version,
-        }
-
-    def __str__(self):
-        return "/".join([self.repo, self.path, self.filename])
-
-    def __lt__(self, other):
-        if self.name == other.name:
-            return debian_compare(self.version, other.version) < 0
-        else:
-            return self.name < other.name
-
-    def __le__(self, other):
-        if self.name == other.name:
-            return debian_compare(self.version, other.version) <= 0
-        else:
-            return self.name <= other.name
-
-    def __eq__(self, other):
-        if self.name == other.name:
-            return debian_compare(self.version, other.version) == 0
-        else:
-            return False
-
-    def __ne__(self, other):
-        if self.name == other.name:
-            return debian_compare(self.version, other.version) != 0
-        else:
-            return True
-
-    def __ge__(self, other):
-        if self.name == other.name:
-            return debian_compare(self.version, other.version) >= 0
-        else:
-            return self.name >= other.name
-
-    def __gt__(self, other):
-        if self.name == other.name:
-            return debian_compare(self.version, other.version)
-        else:
-            return self.name > other.name
-
-
-def search_artifactory(aql, baseurl):
-    headers = {"X-Jfrog-Art-Api": "APIKEYHEREPLEASE"}
+def search_artifactory(aql, baseurl, apikey=None, verify=True):
+    headers = {"X-Jfrog-Art-Api": apikey}
     r = requests.post(
         url=f"http://{baseurl}/artifactory/api/search/aql",
         headers=headers,
         data=aql,
+        verify=verify
     )
     r.raise_for_status()
     response_data = r.json()
@@ -106,13 +51,14 @@ def determine_deletables(artifacts):
     return deletables
 
 
-@retry(stop_max_attempt_number=7, wait_fixed=2000)
+@retry(stop_max_attempt_number=7, wait_fixed=2000, apikey=None, verify=True)
 def delete_package(package, baseurl):
-    headers = {"X-Jfrog-Art-Api": "APIKEYHEREPLEASE"}
+    headers = {"X-Jfrog-Art-Api": apikey}
     print("Deleting {0}...".format(package))
     r = requests.delete(
         url=f"http://{baseurl}/artifactory/{package}",
         headers=headers,
+        verify=verify
     )
     r.raise_for_status()
 
@@ -123,21 +69,29 @@ def delete_packages(packages):
 
 
 def main():
-    results = search_artifactory(
-        """
-items.find({
-    "property.key": "deb.name",
-    "property.value": {"$match": "salt-state-*"}
-}).include("name", "path", "repo", "property")
-"""
-    )
+    baseurl = os.environ.get("ARTIFACTORY_REGISTRY")
+    apikey  = os.environ.get("ARTIFACTORY_API_KEY")
+    aql =  """
+    items.find({
+        "property.key": "deb.name",
+        "property.value": {"$match": "*"}
+    }).include("name", "path", "repo", "property")
+    """
+    docker_query = """items.find({
+      "name": {"$match":"*"},
+      "type": "file", 
+      "stat.downloaded": {"$before":"4w"},
+      "repo": "docker-local"
+    }).include("stat.downloaded")
+    """
+    results = search_artifactory(aql=aql, baseurl=baseurl, apikey=apikey, verify=False)
     print("Sample result:")
     print("")
-    pprint.pprint(results[0])
+    pprint.pprint(next(iter(results), None))
     print("")
     artifacts = determine_deletables(results)
-    delete_packages(artifacts)
-    # pprint.pprint(sift_artifacts(results))
+    #delete_packages(artifacts)
+    pprint.pprint(artifacts)
 
 
 if __name__ == "__main__":
