@@ -189,11 +189,18 @@ function tsh {
 }
 
 
-activate-vpn-cert() {
-    export SSL_CERT_DIR=${HOME}/.aws/certs
-    export SSL_CERT_FILE=${HOME}/.aws/certs/root.pem
-    export AWS_CA_BUNDLE=${HOME}/.aws/certs/root.pem
-    export PIP_CERT=${HOME}/.aws/certs/root.pem
+# activate-vpn-cert() {
+#     export SSL_CERT_DIR=${HOME}/.aws/certs
+#     export SSL_CERT_FILE=${HOME}/.aws/certs/root.pem
+#     export AWS_CA_BUNDLE=${HOME}/.aws/certs/root.pem
+#     export PIP_CERT=${HOME}/.aws/certs/root.pem
+# }
+
+activate-vpn-cert () {
+    export SSL_CERT_DIR=${HOME}/anthem;
+    export SSL_CERT_FILE=${HOME}/anthem/wellpoint-certifi-ca-bundle.pem;
+    export AWS_CA_BUNDLE=${HOME}/anthem/wellpoint-certifi-ca-bundle.pem;
+    export PIP_CERT=${HOME}/anthem/wellpoint-certifi-ca-bundle.pem
 }
 
 deactivate-vpn-cert() {
