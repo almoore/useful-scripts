@@ -34,6 +34,7 @@ def parse_args():
     conf_path = os.path.join(user_base, '.atlassian-conf.json')
     parser = argparse.ArgumentParser()
     parser.add_argument('issue', help='The ticket number to start from')
+    parser.add_argument('-p', '--prefix', help='Specify a prefix to use that will be joined with \'/\'')
     parser.add_argument('--conf', default=os.environ.get("GIT_JIRA_CONF", conf_path),
                         help='The location to read conf data from')
     parser.add_argument('--url', default=os.environ.get("JIRA_URL"),
@@ -205,6 +206,8 @@ def main():
         if args.verbose:
             print("Created slug:", slug)
         branch_name = "{id}-{desc}".format(id=issue, desc=slug)
+        if args.prefix:
+            branch_name = "{}/{}".format(args.prefix, branch_name)
         run_command("git branch {}".format(branch_name),
                     verbose=args.verbose, dry=args.dry_run)
         run_command("git checkout {}".format(branch_name),
