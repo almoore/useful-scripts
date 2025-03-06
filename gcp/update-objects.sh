@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 BUCKET=${BUCKET}
-PATH=${PATH}
+OBJ_PATH=${OBJ_PATH}
 OLD_KMS_KEY=null
 KMS_KEY=$(gcloud storage buckets describe ${BUCKET} --format="yaml(encryption)"|yq -r .encryption.defaultKmsKeyName)
-OBJECTS=$(gsutil ls ${BUCKET}/${PATH}/)
-OBJECT_IDS=$(gcloud storage objects list ${BUCKET}/${PATH}/* \
+OBJECTS=$(gsutil ls ${BUCKET}/${OBJ_PATH}/)
+OBJECT_IDS=$(gcloud storage objects list ${BUCKET}/${OBJ_PATH}/* \
   --filter="kmsKeyName:${OLD_KMS_KEY}" \
   --format="value(id)"
 )

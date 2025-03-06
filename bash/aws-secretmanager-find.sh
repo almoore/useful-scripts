@@ -48,7 +48,7 @@ main() {
     if [ "$DEBUG" = 1 ]; then
         set -x
     fi
-    echo "Sending query to aws ssm ..." >&2
+    echo "Sending query to aws secretmanager ..." >&2
     TMP=$(mktemp)
     
     aws secretsmanager list-secrets $REGION > $TMP

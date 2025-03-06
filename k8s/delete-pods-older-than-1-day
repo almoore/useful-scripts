@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+set -x
+date=$(type -p gdate || type -p date)
+TIME=$($date -d 'yesterday' -Ins --utc |sed 's/+0000/Z/')
+PODS=$(kubectl get pods -o go-template --template '{{range .items}}{{.metadata.name}} {{.metadata.creationTimestamp}}{{"\n"}}{{end}}' "${@}")
+FILTERED_PODS=$(echo "$PODS" | awk '$2 <= "'$TIME'" { print $1 }')
+for p in $FILTERED_PODS; do
+    kubectl delete pod $p "${@}"
+done

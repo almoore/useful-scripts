@@ -272,3 +272,12 @@ switch-terraform-gcp-env() {
       cd ${GIT_BASE}/envs/carelon-digital.com
   fi
 }
+
+csvl () {
+    OLDIFS=$IFS
+    IFS=','
+    for v in $@; do
+        echo $v
+    done
+    IFS=$OLDIFS
+}

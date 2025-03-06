@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 BUCKET=${BUCKET}
-PATH=${PATH}
+OBJ_PATH=${OBJ_PATH}
 KMS_KEY=$(gcloud storage buckets describe ${BUCKET} --format="yaml(encryption)"|yq -r .encryption.defaultKmsKeyName)
 OLD_KMS_KEY=null
-OBJECT_JSON=$(gcloud storage objects list ${BUCKET}/${PATH}/* \
+OBJECT_JSON=$(gcloud storage objects list ${BUCKET}/${OBJ_PATH}/* \
   --filter="kmsKeyName:${OLD_KMS_KEY}" \
   --format=json \
 )
