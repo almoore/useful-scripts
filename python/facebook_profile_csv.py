@@ -9,6 +9,30 @@ import os
 ACCESS_TOKEN = os.environ.get('FACEBOOK_ACCESS_TOKEN')
 BASE_URL = 'https://graph.facebook.com/v11.0/me'
 
+BASE_URL = 
+
+def get_paginated_posts(url='https://graph.facebook.com/v22.0/me/posts', access_token, fields=None):
+    """Fetch paginated posts from the Facebook Graph API."""
+    posts = []
+    params = {
+        'access_token': access_token,
+    }
+    if fields:
+        params['fields'] = ','.join(fields)
+    while url:
+        response = requests.get(url, params=params)
+        if response.status_code == 200:
+            data = response.json()
+            posts.extend(data.get('data', []))
+            # Get the 'next' page URL from the pagination info
+            url = data.get('paging', {}).get('next')
+            print(f"Fetched {len(posts)} posts so far...")
+        else:
+            print(f"Error reaching API: {response.status_code}")
+            break
+    return posts
+
+
 def fetch_facebook_profile_data(access_token, fields=None):
     """Fetches profile data from Facebook."""
     params = {
