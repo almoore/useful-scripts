@@ -78,13 +78,13 @@ def main():
     }).include("name", "path", "repo", "property")
     """
     docker_query = """items.find({
-      "name": {"$match":"*"},
       "type": "file", 
-      "stat.downloaded": {"$before":"4w"},
       "repo": "docker-local"
-    }).include("stat.downloaded")
+      "stat.downloaded": {"$before":"4w"},
+    }).include("name", "@docker.repoName", "@docker.manifest" ,"stat.downloads")
     """
     results = search_artifactory(aql=aql, baseurl=baseurl, apikey=apikey, verify=False)
+    # docker_results = search_artifactory(aql=docker_query, baseurl=baseurl, apikey=apikey, verify=False)
     print("Sample result:")
     print("")
     pprint.pprint(next(iter(results), None))

@@ -20,8 +20,8 @@ def main():
         sys.exit(1)
     elif len(sys.argv) == 3:
         filename_out = sys.argv[2]
-    else
-    filename = sys.argv[1]
+    else:
+        filename = sys.argv[1]
     try:
         with open(filename, 'rb') as fsi:
             data = fsi.read()
