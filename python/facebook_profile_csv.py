@@ -98,12 +98,15 @@ def main():
     # Define the fields you want to retrieve
     # modify according to permissions granted
     fields = ["attachments", "type", "updated_time", "full_picture",
-              "created_time", "backdated_time", "message", "source"]
+              "created_time", "backdated_time", "message", "source", "is_hidden"]
 
     try:
         prefix = "facebook_profile_data"
         if args.paginate:
-            params = {}
+            params = {
+                "include_hidden": "true",
+                "show_expired": "true",
+            }
             if args.since:
                 date_format = "%Y-%m-%d"
                 date_string = args.since
