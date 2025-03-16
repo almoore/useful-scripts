@@ -2,7 +2,6 @@ import os
 import json
 import csv
 import argparse
-import google.auth
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -106,17 +105,41 @@ def get_document_content(docs_service, document_id):
     try:
         document = docs_service.documents().get(documentId=document_id).execute()
         content = document.get("body").get("content")
-        text = ""
+        text_content = []
         for element in content:
-            if "paragraph" in element:
-                paragraph_elements = element.get("paragraph").get("elements")
+            if 'paragraph' in element:
+                paragraph_elements = element.get('paragraph').get('elements')
                 for elem in paragraph_elements:
-                    if "textRun" in elem:
-                        text += elem.get("textRun").get("content")
-        return text.strip()
+                    text_run = elem.get('textRun')
+                    if text_run:
+                        text = text_run.get('content', '')
+                        link = text_run.get('textStyle', {}).get('link', {})
+                        if link:
+                            text_content.append(f"{text.strip()} (Link: {link.get('url')})")
+                        else:
+                            text_content.append(text.strip())
+                    if 'inlineObjectElement' in elem:
+                        inline_object_id = elem['inlineObjectElement'].get('inlineObjectId')
+                        if inline_object_id:
+                            embedded_image_url = get_embedded_image_url(document, inline_object_id)
+                            if embedded_image_url:
+                                text_content.append(f"[Embedded Image: {embedded_image_url}]")
+        return ' '.join(text_content).strip()
     except HttpError as error:
         print(f"An error occurred: {error}")
         return ""
+
+
+def get_embedded_image_url(document, inline_object_id):
+    inline_object = document.get('inlineObjects', {}).get(inline_object_id)
+    if inline_object:
+        embedded_object = inline_object.get('inlineObjectProperties', {}).get('embeddedObject', {})
+        image_properties = embedded_object.get('imageProperties')
+        if image_properties:
+            # Assuming you need to handle the URL here; note that you might need to implement direct image access if applicable.
+            content_uri = image_properties.get('contentUri')
+            return content_uri
+    return None
 
 
 def save_to_json(documents, filename="documents.json"):
@@ -154,9 +177,10 @@ def main():
     documents_metadata = list_documents_in_folder(drive_service, folder_id)
     documents = []
 
+    count = 0
     for doc in documents_metadata:
-        if doc["name"] == "Facebook Post: 2024-11-22T20:57:24":
-            print(doc["name"])
+        count += 1
+        print(f"{count}/{len(documents_metadata)} {doc["name"]}")
         content = get_document_content(docs_service, doc["id"])
         documents.append({"name": doc["name"], "content": content})
 
