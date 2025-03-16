@@ -1,22 +1,41 @@
 import os
 import json
-import csv
 import re
 import requests
 from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from PyPDF2 import PdfWriter
+from PyPDF2 import PdfWriter, PdfReader
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from io import BytesIO
 import argparse
 
+# Define the scopes required
+SCOPES = [
+    'https://www.googleapis.com/auth/drive.readonly',
+    'https://www.googleapis.com/auth/documents.readonly'
+]
 
-def get_service(api_name, api_version, *scopes, credentials_file):
-    creds = Credentials.from_authorized_user_file(credentials_file, scopes)
+def get_service(api_name, api_version, credentials_file, token_file='token.json'):
+    creds = None
+    # The file token.json stores the user's access and refresh tokens, and is
+    # created automatically when the authorization flow completes for the first time.
+    if os.path.exists(token_file):
+        creds = Credentials.from_authorized_user_file(token_file, SCOPES)
+    # If there are no (valid) credentials available, let the user log in.
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                credentials_file, SCOPES)
+            creds = flow.run_local_server(port=0)
+        # Save the credentials for the next run
+        with open(token_file, 'w') as token:
+            token.write(creds.to_json())
     return build(api_name, api_version, credentials=creds)
-
 
 def list_documents_in_folder(service, folder_id):
     try:
@@ -26,7 +45,6 @@ def list_documents_in_folder(service, folder_id):
     except HttpError as error:
         print(f"An error occurred: {error}")
         return []
-
 
 def download_document_as_pdf(docs_service, drive_service, doc_id, doc_name):
     document = docs_service.documents().get(documentId=doc_id).execute()
@@ -44,7 +62,6 @@ def download_document_as_pdf(docs_service, drive_service, doc_id, doc_name):
                     text_content = elem.get('textRun').get('content', '')
                     c.drawString(72, height - 72, text_content.strip())
                     height -= 12  # Move down each line
-                    # Extract Google Drive links and check if they are images
                     links = re.findall(r'https?://[^\s]+', text_content)
                     for link in links:
                         if 'drive.google.com' in link:
@@ -58,7 +75,6 @@ def download_document_as_pdf(docs_service, drive_service, doc_id, doc_name):
     with open(f"{doc_name}.pdf", 'wb') as f:
         f.write(buffer.read())
 
-
 def is_image(drive_service, file_id):
     try:
         file = drive_service.files().get(fileId=file_id, fields="mimeType").execute()
@@ -68,13 +84,11 @@ def is_image(drive_service, file_id):
         print(f"An error occurred: {error}")
     return False
 
-
 def download_and_embed_image(c, drive_service, file_id, height):
     request = drive_service.files().get_media(fileId=file_id)
     file_data = request.execute()
     image = BytesIO(file_data)
     c.drawImage(image, 72, height - 100, width=200, height=100)  # Adjust size as needed
-
 
 def extract_drive_file_id(url):
     match = re.search(r'/d/([A-Za-z0-9_-]+)', url)
@@ -82,17 +96,15 @@ def extract_drive_file_id(url):
         return match.group(1)
     return None
 
-
 def merge_pdfs(pdf_files, output_path):
     pdf_writer = PdfWriter()
     for pdf_file in pdf_files:
         with open(pdf_file, 'rb') as f:
-            pdf_reader = PyPDF2.PdfReader(f)
+            pdf_reader = PdfReader(f)
             for page in range(len(pdf_reader.pages)):
                 pdf_writer.add_page(pdf_reader.pages[page])
     with open(output_path, 'wb') as f:
         pdf_writer.write(f)
-
 
 def main():
     parser = argparse.ArgumentParser(description='Fetch Google Docs, convert links to embedded images, and convert to PDF.')
@@ -104,8 +116,8 @@ def main():
     folder_id = args.folder_id
     credentials_file = args.credentials
 
-    drive_service = get_service('drive', 'v3', 'https://www.googleapis.com/auth/drive.readonly', credentials_file=credentials_file)
-    docs_service = get_service('docs', 'v1', 'https://www.googleapis.com/auth/documents.readonly', credentials_file=credentials_file)
+    drive_service = get_service('drive', 'v3', credentials_file)
+    docs_service = get_service('docs', 'v1', credentials_file)
 
     documents_metadata = list_documents_in_folder(drive_service, folder_id)
     pdf_files = []
