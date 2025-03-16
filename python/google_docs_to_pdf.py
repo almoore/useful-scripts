@@ -1,0 +1,124 @@
+import os
+import json
+import csv
+import re
+import requests
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+from PyPDF2 import PdfWriter
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from io import BytesIO
+import argparse
+
+
+def get_service(api_name, api_version, *scopes, credentials_file):
+    creds = Credentials.from_authorized_user_file(credentials_file, scopes)
+    return build(api_name, api_version, credentials=creds)
+
+
+def list_documents_in_folder(service, folder_id):
+    try:
+        query = f"'{folder_id}' in parents and mimeType = 'application/vnd.google-apps.document'"
+        results = service.files().list(q=query, fields="files(id, name)").execute()
+        return results.get('files', [])
+    except HttpError as error:
+        print(f"An error occurred: {error}")
+        return []
+
+
+def download_document_as_pdf(docs_service, drive_service, doc_id, doc_name):
+    document = docs_service.documents().get(documentId=doc_id).execute()
+    content = document.get('body').get('content')
+
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+
+    for element in content:
+        if 'paragraph' in element:
+            paragraph_elements = element.get('paragraph').get('elements', [])
+            for elem in paragraph_elements:
+                if 'textRun' in elem:
+                    text_content = elem.get('textRun').get('content', '')
+                    c.drawString(72, height - 72, text_content.strip())
+                    height -= 12  # Move down each line
+                    # Extract Google Drive links and check if they are images
+                    links = re.findall(r'https?://[^\s]+', text_content)
+                    for link in links:
+                        if 'drive.google.com' in link:
+                            file_id = extract_drive_file_id(link)
+                            if file_id and is_image(drive_service, file_id):
+                                download_and_embed_image(c, drive_service, file_id, height)
+                                height -= 100  # Adjust for image height
+
+    c.save()
+    buffer.seek(0)
+    with open(f"{doc_name}.pdf", 'wb') as f:
+        f.write(buffer.read())
+
+
+def is_image(drive_service, file_id):
+    try:
+        file = drive_service.files().get(fileId=file_id, fields="mimeType").execute()
+        if file['mimeType'].startswith('image/'):
+            return True
+    except HttpError as error:
+        print(f"An error occurred: {error}")
+    return False
+
+
+def download_and_embed_image(c, drive_service, file_id, height):
+    request = drive_service.files().get_media(fileId=file_id)
+    file_data = request.execute()
+    image = BytesIO(file_data)
+    c.drawImage(image, 72, height - 100, width=200, height=100)  # Adjust size as needed
+
+
+def extract_drive_file_id(url):
+    match = re.search(r'/d/([A-Za-z0-9_-]+)', url)
+    if match:
+        return match.group(1)
+    return None
+
+
+def merge_pdfs(pdf_files, output_path):
+    pdf_writer = PdfWriter()
+    for pdf_file in pdf_files:
+        with open(pdf_file, 'rb') as f:
+            pdf_reader = PyPDF2.PdfReader(f)
+            for page in range(len(pdf_reader.pages)):
+                pdf_writer.add_page(pdf_reader.pages[page])
+    with open(output_path, 'wb') as f:
+        pdf_writer.write(f)
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Fetch Google Docs, convert links to embedded images, and convert to PDF.')
+    parser.add_argument('--folder-id', required=True, help='The Google Drive folder ID containing the documents.')
+    parser.add_argument('--credentials', required=True, help='Path to the OAuth 2.0 credentials JSON file.')
+    parser.add_argument('--merge-to-pdf', action='store_true', help='Merge all documents into one PDF.')
+
+    args = parser.parse_args()
+    folder_id = args.folder_id
+    credentials_file = args.credentials
+
+    drive_service = get_service('drive', 'v3', 'https://www.googleapis.com/auth/drive.readonly', credentials_file=credentials_file)
+    docs_service = get_service('docs', 'v1', 'https://www.googleapis.com/auth/documents.readonly', credentials_file=credentials_file)
+
+    documents_metadata = list_documents_in_folder(drive_service, folder_id)
+    pdf_files = []
+
+    for doc in documents_metadata:
+        pdf_name = f"{doc['name']}.pdf"
+        download_document_as_pdf(docs_service, drive_service, doc['id'], doc['name'])
+        pdf_files.append(pdf_name)
+
+    if args.merge_to_pdf:
+        merge_pdfs(pdf_files, 'merged_documents.pdf')
+        print("All documents have been merged into 'merged_documents.pdf'.")
+
+if __name__ == '__main__':
+    main()
+
