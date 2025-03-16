@@ -28,6 +28,10 @@ def parseargs():
         default=os.environ.get("GOOGLE_OAUTH_CREDS", "credentials.json"),
         help="Path to the OAuth 2.0 credentials JSON file.",
     )
+    parser.add_argument("--pdf", action="store_true", help="Download documents as PDF.")
+    parser.add_argument(
+        "--merge-to-pdf", action="store_true", help="Merge all documents into one PDF."
+    )
 
     return parser.parse_args()
 
@@ -107,37 +111,47 @@ def get_document_content(docs_service, document_id):
         content = document.get("body").get("content")
         text_content = []
         for element in content:
-            if 'paragraph' in element:
-                paragraph_elements = element.get('paragraph').get('elements')
+            if "paragraph" in element:
+                paragraph_elements = element.get("paragraph").get("elements")
                 for elem in paragraph_elements:
-                    text_run = elem.get('textRun')
+                    text_run = elem.get("textRun")
                     if text_run:
-                        text = text_run.get('content', '')
-                        link = text_run.get('textStyle', {}).get('link', {})
+                        text = text_run.get("content", "")
+                        link = text_run.get("textStyle", {}).get("link", {})
                         if link:
-                            text_content.append(f"{text.strip()} (Link: {link.get('url')})")
+                            text_content.append(
+                                f"{text.strip()} (Link: {link.get('url')})"
+                            )
                         else:
                             text_content.append(text.strip())
-                    if 'inlineObjectElement' in elem:
-                        inline_object_id = elem['inlineObjectElement'].get('inlineObjectId')
+                    if "inlineObjectElement" in elem:
+                        inline_object_id = elem["inlineObjectElement"].get(
+                            "inlineObjectId"
+                        )
                         if inline_object_id:
-                            embedded_image_url = get_embedded_image_url(document, inline_object_id)
+                            embedded_image_url = get_embedded_image_url(
+                                document, inline_object_id
+                            )
                             if embedded_image_url:
-                                text_content.append(f"[Embedded Image: {embedded_image_url}]")
-        return ' '.join(text_content).strip()
+                                text_content.append(
+                                    f"[Embedded Image: {embedded_image_url}]"
+                                )
+        return " ".join(text_content).strip()
     except HttpError as error:
         print(f"An error occurred: {error}")
         return ""
 
 
 def get_embedded_image_url(document, inline_object_id):
-    inline_object = document.get('inlineObjects', {}).get(inline_object_id)
+    inline_object = document.get("inlineObjects", {}).get(inline_object_id)
     if inline_object:
-        embedded_object = inline_object.get('inlineObjectProperties', {}).get('embeddedObject', {})
-        image_properties = embedded_object.get('imageProperties')
+        embedded_object = inline_object.get("inlineObjectProperties", {}).get(
+            "embeddedObject", {}
+        )
+        image_properties = embedded_object.get("imageProperties")
         if image_properties:
             # Assuming you need to handle the URL here; note that you might need to implement direct image access if applicable.
-            content_uri = image_properties.get('contentUri')
+            content_uri = image_properties.get("contentUri")
             return content_uri
     return None
 
@@ -155,6 +169,24 @@ def save_to_csv(documents, filename="documents.csv"):
             writer.writerow([doc["name"], doc["content"]])
 
 
+def download_document_as_pdf(drive_service, file_id, destination):
+    request = drive_service.files().export_media(
+        fileId=file_id, mimeType="application/pdf"
+    )
+    with open(destination, "wb") as f:
+        f.write(request.execute())
+
+
+def merge_pdfs(pdf_files, output_path):
+    pdf_writer = PyPDF2.PdfWriter()
+    for pdf_file in pdf_files:
+        pdf_reader = PyPDF2.PdfReader(pdf_file)
+        for page in range(len(pdf_reader.pages)):
+            pdf_writer.add_page(pdf_reader.pages[page])
+    with open(output_path, "wb") as f:
+        pdf_writer.write(f)
+
+
 def main():
     args = parseargs()
     folder_id = args.folder_id
@@ -165,7 +197,9 @@ def main():
         "https://www.googleapis.com/auth/documents.readonly",
     ]
 
-    drive_service = get_service("drive","v3", SCOPES, credentials_file=credentials_file)
+    drive_service = get_service(
+        "drive", "v3", SCOPES, credentials_file=credentials_file
+    )
     docs_service = get_service("docs", "v1", SCOPES, credentials_file=credentials_file)
 
     if not folder_id and folder_name:
@@ -186,6 +220,22 @@ def main():
 
     save_to_json(documents)
     save_to_csv(documents)
+
+    pdf_files = []
+
+    if args.pdf:
+        count = 0
+        for doc in documents_metadata:
+            count += 1
+            pdf_name = f"{doc['name']}.pdf"
+            print(f"{count}/{len(documents_metadata)} {pdf_name}")
+            pdf_path = os.path.join(os.getcwd(), pdf_name)
+            download_document_as_pdf(drive_service, doc["id"], pdf_path)
+            pdf_files.append(pdf_path)
+
+        if args.merge_to_pdf:
+            merge_pdfs(pdf_files, "merged_documents.pdf")
+            print("All documents have been merged into 'merged_documents.pdf'.")
 
 
 if __name__ == "__main__":
