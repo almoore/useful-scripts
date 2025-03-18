@@ -1,7 +1,7 @@
 import os
 import json
 import re
-import requests
+from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
@@ -9,6 +9,7 @@ from googleapiclient.errors import HttpError
 from PyPDF2 import PdfWriter, PdfReader
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
+from PIL import Image
 from io import BytesIO
 import argparse
 
@@ -37,6 +38,21 @@ def get_service(api_name, api_version, credentials_file, token_file='token.json'
             token.write(creds.to_json())
     return build(api_name, api_version, credentials=creds)
 
+
+def get_folder_id(service, folder_name):
+    results = (
+        service.files()
+        .list(
+            q=f"mimeType = 'application/vnd.google-apps.folder' and name = '{folder_name}'",
+            pageSize=10,
+            fields="nextPageToken, files(id, name)",
+        )
+        .execute()
+    )
+    folder_id_result = results.get("files", [])
+    return folder_id_result[0].get("id")
+
+
 def list_documents_in_folder(service, folder_id):
     try:
         query = f"'{folder_id}' in parents and mimeType = 'application/vnd.google-apps.document'"
@@ -62,12 +78,16 @@ def download_document_as_pdf(docs_service, drive_service, doc_id, doc_name):
                     text_content = elem.get('textRun').get('content', '')
                     c.drawString(72, height - 72, text_content.strip())
                     height -= 12  # Move down each line
+                    link = elem.get("textRun").get("textStyle", {}).get("link", {})
                     links = re.findall(r'https?://[^\s]+', text_content)
+                    if link:
+                        links.append(link.get('url'))
                     for link in links:
                         if 'drive.google.com' in link:
                             file_id = extract_drive_file_id(link)
                             if file_id and is_image(drive_service, file_id):
-                                download_and_embed_image(c, drive_service, file_id, height)
+                                height -= 100
+                                download_and_embed_image(c, drive_service, file_id, ypos=height, xpos=0)
                                 height -= 100  # Adjust for image height
 
     c.save()
@@ -84,11 +104,53 @@ def is_image(drive_service, file_id):
         print(f"An error occurred: {error}")
     return False
 
-def download_and_embed_image(c, drive_service, file_id, height):
-    request = drive_service.files().get_media(fileId=file_id)
-    file_data = request.execute()
-    image = BytesIO(file_data)
-    c.drawImage(image, 72, height - 100, width=200, height=100)  # Adjust size as needed
+
+def download_and_embed_image(c, drive_service, file_id, xpos, ypos,
+                             max_width=552, max_height=732):
+    try:
+        # Fetch image data from Google Drive
+        request = drive_service.files().get_media(fileId=file_id)
+        file_data = request.execute()
+
+        # Use PIL to open the image from bytes
+        image = Image.open(BytesIO(file_data))
+
+        # Determine the aspect ratio
+        original_width, original_height = image.size
+        aspect_ratio = original_width / original_height
+
+        # Calculate dimensions that maintain aspect ratio
+        if original_width > original_height:
+            # Landscape orientation: fit width first
+            width = min(max_width, original_width)
+            height = width / aspect_ratio
+            if height > max_height:  # Adjust if height exceeds max
+                height = max_height
+                width = height * aspect_ratio
+        else:
+            # Portrait orientation: fit height first
+            height = min(max_height, original_height)
+            width = height * aspect_ratio
+            if width > max_width:  # Adjust if width exceeds max
+                width = max_width
+                height = width / aspect_ratio
+
+        # Save the image temporarily to a file
+        temp_image_path = '/tmp/temp_image.jpg'  # Adjust path as needed
+        image.save(temp_image_path)
+
+        # Draw image on canvas
+        final_xpos = xpos
+        final_ypos = ypos - height  # Adjust position
+
+        c.drawImage(temp_image_path, final_xpos, final_ypos, width=width,
+                    height=height, mask='auto')
+
+    except HttpError as error:
+        print(f"An error occurred: {error}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+
 
 def extract_drive_file_id(url):
     match = re.search(r'/d/([A-Za-z0-9_-]+)', url)
@@ -108,16 +170,29 @@ def merge_pdfs(pdf_files, output_path):
 
 def main():
     parser = argparse.ArgumentParser(description='Fetch Google Docs, convert links to embedded images, and convert to PDF.')
-    parser.add_argument('--folder-id', required=True, help='The Google Drive folder ID containing the documents.')
-    parser.add_argument('--credentials', required=True, help='Path to the OAuth 2.0 credentials JSON file.')
+    parser.add_argument('--folder-id', help='The Google Drive folder ID containing the documents.')
+    parser.add_argument(
+        "--folder-name",
+        default=os.environ.get("GDRIVE_FOLDER_NAME"),
+        help="The Google Drive folder Name containing the documents.",
+    )
+    parser.add_argument('--credentials', default='credentials.json', help='Path to the OAuth 2.0 credentials JSON file.')
     parser.add_argument('--merge-to-pdf', action='store_true', help='Merge all documents into one PDF.')
 
     args = parser.parse_args()
     folder_id = args.folder_id
+    folder_name = args.folder_name
     credentials_file = args.credentials
 
     drive_service = get_service('drive', 'v3', credentials_file)
     docs_service = get_service('docs', 'v1', credentials_file)
+
+    if not folder_id and folder_name:
+        folder_id = get_folder_id(drive_service, folder_name)
+        print(f"folder_id = {folder_id}")
+    else:
+        print("Need either a folder ID or folder name.")
+        exit(1)
 
     documents_metadata = list_documents_in_folder(drive_service, folder_id)
     pdf_files = []
