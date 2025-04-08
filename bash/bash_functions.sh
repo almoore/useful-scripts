@@ -281,3 +281,10 @@ csvl () {
     done
     IFS=$OLDIFS
 }
+
+
+aws-docker-login() {
+    ACCOUNT_NUMBER=$(aws sts get-caller-identity | jq .Account -r)
+    AWS_REGION=$(aws configure get region)
+    aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ACCOUNT_NUMBER.dkr.ecr.$AWS_REGION.amazonaws.com
+}
