@@ -2,6 +2,7 @@ import os
 import json
 import csv
 import argparse
+import PyPDF2
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -28,6 +29,8 @@ def parseargs():
         default=os.environ.get("GOOGLE_OAUTH_CREDS", "credentials.json"),
         help="Path to the OAuth 2.0 credentials JSON file.",
     )
+    parser.add_argument("--limit", type=int, default=0, help="Download a set limit of pages.")
+
     parser.add_argument("--pdf", action="store_true", help="Download documents as PDF.")
     parser.add_argument(
         "--merge-to-pdf", action="store_true", help="Merge all documents into one PDF."
@@ -192,6 +195,7 @@ def main():
     folder_id = args.folder_id
     folder_name = args.folder_name
     credentials_file = args.credentials
+    limit = args.limit
     SCOPES = [
         "https://www.googleapis.com/auth/drive.readonly",
         "https://www.googleapis.com/auth/documents.readonly",
@@ -209,6 +213,8 @@ def main():
         print("Need either a folder ID or folder name.")
         exit(1)
     documents_metadata = list_documents_in_folder(drive_service, folder_id)
+    if limit:
+        documents_metadata = documents_metadata[:limit]
     documents = []
 
     count = 0

@@ -1,6 +1,7 @@
 import os
 import json
 import re
+from datetime import datetime
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -66,9 +67,9 @@ def download_document_as_pdf(docs_service, drive_service, doc_id, doc_name):
     document = docs_service.documents().get(documentId=doc_id).execute()
     content = document.get('body').get('content')
 
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
+    buffer = canvas.Canvas(f"{doc_name}.pdf", pagesize=letter)
     width, height = letter
+    text_obj = buffer.beginText(40, height - 40)
 
     for element in content:
         if 'paragraph' in element:
@@ -76,8 +77,7 @@ def download_document_as_pdf(docs_service, drive_service, doc_id, doc_name):
             for elem in paragraph_elements:
                 if 'textRun' in elem:
                     text_content = elem.get('textRun').get('content', '')
-                    c.drawString(72, height - 72, text_content.strip())
-                    height -= 12  # Move down each line
+                    text_obj.textLines(text_content.strip())
                     link = elem.get("textRun").get("textStyle", {}).get("link", {})
                     links = re.findall(r'https?://[^\s]+', text_content)
                     if link:
@@ -86,20 +86,16 @@ def download_document_as_pdf(docs_service, drive_service, doc_id, doc_name):
                         if 'drive.google.com' in link:
                             file_id = extract_drive_file_id(link)
                             if file_id and is_image(drive_service, file_id):
-                                height -= 100
-                                download_and_embed_image(c, drive_service, file_id, ypos=height, xpos=0)
-                                height -= 100  # Adjust for image height
+                                download_and_embed_image(buffer, drive_service, file_id, 40, text_obj.getY() - 20)
+                                text_obj.moveCursor(0, -120)
 
-    c.save()
-    buffer.seek(0)
-    with open(f"{doc_name}.pdf", 'wb') as f:
-        f.write(buffer.read())
+        buffer.drawText(text_obj)
+    buffer.save()
 
 def is_image(drive_service, file_id):
     try:
         file = drive_service.files().get(fileId=file_id, fields="mimeType").execute()
-        if file['mimeType'].startswith('image/'):
-            return True
+        return file['mimeType'].startswith('image/')
     except HttpError as error:
         print(f"An error occurred: {error}")
     return False
@@ -140,10 +136,9 @@ def download_and_embed_image(c, drive_service, file_id, xpos, ypos,
         image.save(temp_image_path)
 
         # Draw image on canvas
-        final_xpos = xpos
         final_ypos = ypos - height  # Adjust position
 
-        c.drawImage(temp_image_path, final_xpos, final_ypos, width=width,
+        c.drawImage(temp_image_path, xpos, final_ypos, width=width,
                     height=height, mask='auto')
 
     except HttpError as error:
@@ -176,6 +171,7 @@ def main():
         default=os.environ.get("GDRIVE_FOLDER_NAME"),
         help="The Google Drive folder Name containing the documents.",
     )
+    parser.add_argument("--limit", type=int, default=0, help="Download a set limit of pages.")
     parser.add_argument('--credentials', default='credentials.json', help='Path to the OAuth 2.0 credentials JSON file.')
     parser.add_argument('--merge-to-pdf', action='store_true', help='Merge all documents into one PDF.')
 
@@ -183,6 +179,7 @@ def main():
     folder_id = args.folder_id
     folder_name = args.folder_name
     credentials_file = args.credentials
+    limit = args.limit
 
     drive_service = get_service('drive', 'v3', credentials_file)
     docs_service = get_service('docs', 'v1', credentials_file)
@@ -196,6 +193,8 @@ def main():
 
     documents_metadata = list_documents_in_folder(drive_service, folder_id)
     pdf_files = []
+    if limit:
+        documents_metadata = documents_metadata[:limit]
 
     for doc in documents_metadata:
         pdf_name = f"{doc['name']}.pdf"
