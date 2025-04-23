@@ -56,6 +56,30 @@ def parseargs():
     return parser.parse_args()
 
 
+def get_post_by_title(site_id, access_token, post_title):
+    """Search for a WordPress.com post by title."""
+    url = f'https://public-api.wordpress.com/rest/v1.1/sites/{site_id}/posts'
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+    }
+    params = {
+        'search': post_title,
+        'number': 1  # Limit results to optimize the lookup
+    }
+    response = requests.get(url, headers=headers, params=params)
+
+    if response.status_code == 200:
+        posts = response.json().get('posts')
+        if posts:
+            return posts[0]  # Return the first matched post
+        else:
+            print("No post found with the specified title.")
+            return None
+    else:
+        print(f"Failed to retrieve posts: {response.status_code} - {response.text}")
+        return None
+
+
 def download_facebook_image(facebook_image_url):
     """Download an image from a Facebook URL."""
     response = requests.get(facebook_image_url, stream=True)
