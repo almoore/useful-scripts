@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-import yaml
 import sys
+from ruamel.yaml import YAML
+
+yaml = YAML()
 
 
 def main():
-    data = yaml.safe_load(open(sys.argv[1]))
-    output = yaml.dump(data["spec"]["values"])
-    print(output)
+    data = yaml.load(open(sys.argv[1]))
+    yaml.dump(data["spec"]["values"], sys.stdout)
 
 
 if __name__ == "__main__":
