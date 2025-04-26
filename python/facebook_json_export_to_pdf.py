@@ -84,6 +84,7 @@ def flatten_post_data(posts):
         post["content"] = post_content
     return posts
 
+
 def combine_posts_and_edits(posts, edits):
     """Combine posts with their respective edits based on post IDs."""
     for edit in edits:
