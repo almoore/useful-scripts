@@ -21,6 +21,7 @@ alias gpom='git push origin master'
 alias gpod='git push origin development'
 alias grom='git reset --hard origin/master'
 alias gp='git pull'
+alias gf='git fetch --prune'
 alias gpar='git pull --autostash --rebase'
 alias gpt='git push && git push --tags'
 
