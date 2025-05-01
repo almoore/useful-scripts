@@ -251,26 +251,15 @@ toggle-vpn-cert() { test -n "$AWS_CA_BUNDLE" && deactivate-vpn-cert || activate-
 
 # https://gitlab.com/gnachman/iterm2/-/wikis/Status-Bar-Tips
 test -e "${HOME}/.iterm2_shell_integration.bash" && source "${HOME}/.iterm2_shell_integration.bash"
-function iterm2_print_user_vars() {
-  iterm2_set_user_var AWS_PROFILE "${AWS_PROFILE:-default}"
-  iterm2_set_user_var K8S_CONTEXT "$(kubectl config current-context || "None")"
-}
+# function iterm2_print_user_vars() {
+#   iterm2_set_user_var AWS_PROFILE "${AWS_PROFILE:-default}"
+#   iterm2_set_user_var K8S_CONTEXT "$(kubectl config current-context || "None")"
+# }
 
 
 
 function jq_repl() {
     echo ‘’ | fzf --print-query --preview "jq {q} ${1}"
-}
-
-switch-terraform-gcp-env() {
-  GIT_BASE=$(git rev-parse --show-toplevel)
-  if [ "$GOOGLE_APPLICATION_CREDENTIALS" == "$GOOGLE_APPLICATION_CREDENTIALS_CDC" ]; then
-      export GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS_DCDC
-      cd ${GIT_BASE}/envs/dev.carelon-digital.com
-  else
-      export GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS_CDC
-      cd ${GIT_BASE}/envs/carelon-digital.com
-  fi
 }
 
 csvl () {
