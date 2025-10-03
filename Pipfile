@@ -15,6 +15,7 @@ pytz = "*"
 pypdf2 = "*"
 reportlab = "*"
 flask = "*"
+urllib3 = "*"
 
 [dev-packages]
 
