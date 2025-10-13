@@ -17,32 +17,36 @@ def get_rds_instances_with_versions(
     # Initialize a session using Amazon RDS
     client = boto3.client("rds", region_name=region)
 
-    # Describe the DB instances
-    response = client.describe_db_instances()
+    # Use paginator for handling large numbers of instances
+    paginator = client.get_paginator("describe_db_instances")
+    page_iterator = paginator.paginate()
 
     # Extract and filter DB instance information
-    db_instances = response["DBInstances"]
     filtered_instances = []
-    for instance in db_instances:
-        db_instance_identifier = instance["DBInstanceIdentifier"]
-        db_engine = instance["Engine"]
-        db_engine_version = instance["EngineVersion"]
-        major_version = db_engine_version.split(".")[0]
+    for page in page_iterator:
+        for instance in page["DBInstances"]:
+            db_instance_identifier = instance["DBInstanceIdentifier"]
+            db_engine = instance["Engine"]
+            db_engine_version = instance["EngineVersion"]
+            major_version = db_engine_version.split(".")[0]
 
-        if (
-            (engine_filter and engine_filter != db_engine)
-            or (identifier_filter and identifier_filter not in db_instance_identifier)
-            or (major_version_filter and major_version_filter != major_version)
-        ):
-            continue
+            if (
+                (engine_filter and engine_filter != db_engine)
+                or (
+                    identifier_filter
+                    and identifier_filter not in db_instance_identifier
+                )
+                or (major_version_filter and major_version_filter != major_version)
+            ):
+                continue
 
-        filtered_instances.append(
-            {
-                "Identifier": db_instance_identifier,
-                "Engine": db_engine,
-                "Version": db_engine_version,
-            }
-        )
+            filtered_instances.append(
+                {
+                    "Identifier": db_instance_identifier,
+                    "Engine": db_engine,
+                    "Version": db_engine_version,
+                }
+            )
 
     # Output formatting
     if output_format == "table":
