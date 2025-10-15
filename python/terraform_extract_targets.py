@@ -6,19 +6,32 @@ import argparse
 
 def extract_tf_names(file_content):
     """Extracts resource and module names from a Terraform file content."""
-    pattern = r'^(resource|module)\s+"([^"]+)"\s+"([^"]+)"'
-    matches = re.findall(pattern, file_content, re.MULTILINE)
-    return matches
+    # Separate regex patterns for resources and modules
+    resource_pattern = r'^resource\s+"([^"]+)"\s+"([^"]+)"'
+    module_pattern = r'^module\s+"([^"]+)"'
+
+    # Find all matches separately for resources and modules
+    resource_matches = re.findall(resource_pattern, file_content, re.MULTILINE)
+    module_matches = re.findall(module_pattern, file_content, re.MULTILINE)
+
+    # Convert module matches to the same format
+    module_matches_formatted = [('module', module_name) for module_name in
+                                module_matches]
+
+    # Combine all matches
+    return resource_matches + module_matches_formatted
 
 
 def generate_target_strings(names):
     """Generates Terraform resource target strings."""
     targets = []
-    for category, name_type, name in names:
-        if category == "module":
-            target = f'module.{name}'
-        else:  # For resources
-            target = f'{name_type}.{name}'
+    for item in names:
+        if len(item) == 2 and item[0] == "module":
+            # Module
+            target = f'module.{item[1]}'
+        elif len(item) == 2:
+            # Resource
+            target = f'{item[0]}.{item[1]}'
         targets.append(target)
     return targets
 
@@ -41,21 +54,29 @@ def main():
     parser = argparse.ArgumentParser(
         description='Process Terraform files to generate target strings for resources and modules.')
     parser.add_argument('directory_or_pattern', nargs='?', default='.',
-                        help='Directory or pattern to search for Terraform files (default: current directory).')
+                        help='Directory, file, or pattern to search for Terraform files (default: current directory).')
 
     args = parser.parse_args()
 
-    # Resolve file pattern
-    file_paths = glob.glob(os.path.join(args.directory_or_pattern, '**/*.tf'),
-                           recursive=True)
+    # Determine if input is a file or pattern
+    if os.path.isfile(args.directory_or_pattern):
+        # Single file provided
+        file_paths = [args.directory_or_pattern]
+    else:
+        # Treat as pattern or directory
+        file_pattern = os.path.join(args.directory_or_pattern, '*.tf')
+        file_paths = glob.glob(file_pattern)
 
     # Process files to extract names and generate target paths
     target_strings = process_files(file_paths)
 
     if target_strings:
-        print("Generated Terraform Target Strings:")
-        for target in target_strings:
-            print(target)
+        print("Generated Terraform Target Arguments:")
+        for i, target in enumerate(target_strings):
+            if i < len(target_strings) - 1:
+                print(f'-target={target} \\')
+            else:
+                print(f'-target={target}')
     else:
         print("No Terraform resources or modules found.")
 
