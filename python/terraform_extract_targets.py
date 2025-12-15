@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import os
 import glob
 import re
@@ -71,7 +72,7 @@ def main():
     target_strings = process_files(file_paths)
 
     if target_strings:
-        print("Generated Terraform Target Arguments:")
+        print("terraform apply \\")
         for i, target in enumerate(target_strings):
             if i < len(target_strings) - 1:
                 print(f'-target={target} \\')
