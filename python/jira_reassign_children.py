@@ -67,6 +67,8 @@ def parse_args():
                         help='The jira url')
     parser.add_argument('--profile', default=os.environ.get("JIRA_PROFILE", "default"),
                         help='The jira profile')
+    parser.add_argument('--force-password', default=False, action='store_true',
+                        help='Force prompting for password (useful when token has expired)')
     parser.add_argument('-v', '--verbose', default=False, action='store_true',
                         help='More verbose logging')
     parser.add_argument('-d', '--dry-run', default=False, action='store_true',
@@ -132,7 +134,9 @@ def auth(args):
         conf["url"] = url
     if url is None and not conf.get("url"):
         conf["url"] = str(input('Enter your jira url: '))
-    if HAS_KEYRING_PY and conf.get("username"):
+    if args.force_password:
+        conf.pop("password", None)
+    if HAS_KEYRING_PY and conf.get("username") and not args.force_password:
         if args.verbose:
             print("Getting password from keyring {url}: {username}".format(**conf))
         conf["password"] = keyring.get_password(conf["url"], conf["username"])
