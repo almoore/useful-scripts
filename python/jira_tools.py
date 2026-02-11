@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
-import os, json, contextlib
+import os, json, contextlib, getpass, argparse
 
 from jira import JIRA, User, utils
 from atlassian import Jira
+
+try:
+    import keyring
+    HAS_KEYRING_PY = True
+except ImportError:
+    HAS_KEYRING_PY = False
 
 
 def get_conf(conf_path):
@@ -71,17 +77,44 @@ def add_user_to_group(jira, accountId, group):
         return r
 
 
-def setup_jira_client():
+def get_user_auth_input(conf):
+    if not conf.get('username'):
+        conf['username'] = str(input('Enter your jira username: '))
+    if not conf.get('password'):
+        conf['password'] = getpass.getpass()
+    return conf
+
+
+def setup_jira_client(force_password=False, verbose=False):
     profile = os.getenv('JIRA_PROFILE', 'default')
     user_base = os.path.expanduser('~')
     conf_path = os.path.join(user_base, '.atlassian-conf.json')
     full_conf = get_conf(conf_path=conf_path)
     conf = full_conf.get(profile, {})
+    if force_password:
+        conf.pop("password", None)
+    if HAS_KEYRING_PY and conf.get("username") and not force_password:
+        if verbose:
+            print("Getting password from keyring {url}: {username}".format(**conf))
+        conf["password"] = keyring.get_password(conf["url"], conf["username"])
+    conf = get_user_auth_input(conf)
+    if HAS_KEYRING_PY and conf.get("password"):
+        keyring.set_password(conf["url"], conf["username"], conf["password"])
     return JIRA(server=conf["url"], basic_auth=(conf["username"], conf["password"]))
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--force-password', default=False, action='store_true',
+                        help='Force prompting for password (useful when token has expired)')
+    parser.add_argument('-v', '--verbose', default=False, action='store_true',
+                        help='More verbose logging')
+    return parser.parse_args()
+
+
 def main():
-    jira = setup_jira_client()
+    args = parse_args()
+    jira = setup_jira_client(force_password=args.force_password, verbose=args.verbose)
     group = 'deloitte'
     group_b = 'jira-sotware-users'
 
