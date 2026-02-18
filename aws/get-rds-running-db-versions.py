@@ -7,7 +7,7 @@ from tabulate import tabulate
 import yaml
 
 
-def get_rds_clusters_with_versions(
+def get_rds_instances_with_versions(
     engine_filter=None,
     identifier_filter=None,
     major_version_filter=None,
@@ -17,19 +17,18 @@ def get_rds_clusters_with_versions(
     # Initialize a session using Amazon RDS
     client = boto3.client("rds", region_name=region)
 
-    # Use paginator for handling large numbers of clusters
+    # Use paginator for handling large numbers of instances
     paginator = client.get_paginator("describe_db_clusters")
     page_iterator = paginator.paginate()
 
-    # Extract and filter DB cluster information
-    filtered_clusters = []
+    # Extract and filter DB instance information
+    filtered_instances = []
     for page in page_iterator:
-        for cluster in page["DBClusters"]:
-            db_cluster_identifier = cluster["DBClusterIdentifier"]
-            db_engine = cluster["Engine"]
-            db_engine_version = cluster["EngineVersion"]
+        for instance in page["DBClusters"]:
+            db_cluster_identifier = instance["DBClusterIdentifier"]
+            db_engine = instance["Engine"]
+            db_engine_version = instance["EngineVersion"]
             major_version = db_engine_version.split(".")[0]
-            db_endpoint = cluster["Endpoint"]
 
             if (
                 (engine_filter and engine_filter != db_engine)
@@ -41,39 +40,37 @@ def get_rds_clusters_with_versions(
             ):
                 continue
 
-            filtered_clusters.append(
+            filtered_instances.append(
                 {
                     "Identifier": db_cluster_identifier,
                     "Engine": db_engine,
                     "Version": db_engine_version,
-                    "Endpoint": db_endpoint,
                 }
             )
-            # filtered_clusters.append(cluster)
 
     # Output formatting
     if output_format == "table":
-        if filtered_clusters:
+        if filtered_instances:
             headers = ["Identifier", "Engine", "Version"]
             table = [
                 [inst["Identifier"], inst["Engine"], inst["Version"]]
-                for inst in filtered_clusters
+                for inst in filtered_instances
             ]
             print(tabulate(table, headers, tablefmt="grid"))
         else:
-            print("No clusters match your filters.")
+            print("No instances match your filters.")
 
     elif output_format == "yaml":
-        print(yaml.dump(filtered_clusters, default_flow_style=False))
+        print(yaml.dump(filtered_instances, default_flow_style=False))
 
     elif output_format == "name":
-        for inst in filtered_clusters:
+        for inst in filtered_instances:
             print(inst["Identifier"])
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Filter RDS clusters by engine type, cluster identifier, major version, and output format."
+        description="Filter RDS instances by engine type, instance identifier, major version, and output format."
     )
     parser.add_argument(
         "-e",
@@ -85,7 +82,7 @@ if __name__ == "__main__":
         "-i",
         "--identifier",
         type=str,
-        help="Partial or full filter by database cluster identifier.",
+        help="Partial or full filter by database instance identifier.",
     )
     parser.add_argument(
         "-v",
@@ -107,7 +104,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    get_rds_clusters_with_versions(
+    get_rds_instances_with_versions(
         engine_filter=args.engine,
         identifier_filter=args.identifier,
         major_version_filter=args.version,
