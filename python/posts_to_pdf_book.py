@@ -51,6 +51,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import (
+    Flowable,
     Image as RLImage,
     PageBreak,
     Paragraph,
@@ -117,7 +118,23 @@ class SubstackHTMLParser(HTMLParser):
             self.text_parts.append(data)
 
     def get_text(self):
-        return re.sub(r'\n{3,}', '\n\n', "".join(self.text_parts)).strip()
+        text = re.sub(r'\n{3,}', '\n\n', "".join(self.text_parts)).strip()
+        # Strip common Substack navigation/footer artifacts
+        for marker in [
+            "PreviousNext",
+            "Discussion about this post",
+            "CommentsRestacks",
+            "Ready for more?",
+            "TopLatestDiscussions",
+            "No posts",
+            "SubscribeSign in",
+            "Subscribe now",
+        ]:
+            idx = text.find(marker)
+            if idx != -1:
+                text = text[:idx].rstrip()
+                break
+        return text
 
 
 def parse_html_content(html):
@@ -171,7 +188,12 @@ class SubstackFetcher:
         canonical = post_meta.get("canonical_url", "")
         post_url = canonical or f"{self.base_url}/p/{slug}"
 
-        # Try the API endpoint first for the post body HTML
+        # Use body_html from the list response if already present
+        body_html = post_meta.get("body_html", "")
+        if body_html:
+            return body_html, post_url
+
+        # Try the individual post API endpoint
         post_id = post_meta.get("id")
         if post_id:
             try:
@@ -188,8 +210,6 @@ class SubstackFetcher:
         try:
             resp = self.session.get(post_url)
             resp.raise_for_status()
-            # Extract body from the post page
-            # Look for the post body div
             match = re.search(
                 r'<div[^>]*class="[^"]*body[^"]*"[^>]*>(.*?)</div>\s*(?:<div[^>]*class="[^"]*subscription|footer)',
                 resp.text,
@@ -655,35 +675,21 @@ class _PageTracker:
         return _PageMarkerFlowable(self, post_index)
 
 
-class _PageMarkerFlowable:
+class _PageMarkerFlowable(Flowable):
     """Zero-height flowable that records its page number during layout."""
 
-    # Minimal flowable interface for reportlab
-    width = 0
-    height = 0
-
     def __init__(self, tracker, post_index):
+        super().__init__()
         self.tracker = tracker
         self.post_index = post_index
+        self.width = 0
+        self.height = 0
 
     def wrap(self, available_width, available_height):
         return (0, 0)
 
-    def drawOn(self, canvas, x, y, _sW=0):
-        self.tracker.page_numbers[self.post_index] = canvas.getPageNumber()
-
-    def identity(self, maxLen=None):
-        return f"PageMarker({self.post_index})"
-
-    # Required by platypus layout engine
-    def getSpaceBefore(self):
-        return 0
-
-    def getSpaceAfter(self):
-        return 0
-
-    def isIndexing(self):
-        return False
+    def draw(self):
+        self.tracker.page_numbers[self.post_index] = self.canv.getPageNumber()
 
 
 # ---------------------------------------------------------------------------
