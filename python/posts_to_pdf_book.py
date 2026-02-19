@@ -67,8 +67,10 @@ class Post:
     """Represents a single post from any source."""
     title: str
     date: datetime
-    body: str
-    images: List[str] = field(default_factory=list)  # local file paths
+    # content is a list of interleaved blocks:
+    #   ("text", "paragraph text...")
+    #   ("image", "/path/to/local/file.jpg")
+    content: List[tuple] = field(default_factory=list)
     subtitle: Optional[str] = None
     url: Optional[str] = None
 
@@ -77,16 +79,45 @@ class Post:
 # HTML parsing helpers (stdlib html.parser, no bs4 dependency)
 # ---------------------------------------------------------------------------
 
+def _strip_substack_widgets(html):
+    """Remove Substack subscription widgets and chrome from body HTML."""
+    # Remove subscription widget blocks (inline CTAs, footers)
+    html = re.sub(
+        r'<div[^>]*class="[^"]*subscription-widget[^"]*"[^>]*>.*?</div>\s*</div>\s*</div>',
+        '', html, flags=re.DOTALL,
+    )
+    # Remove standalone subscribe buttons/forms
+    html = re.sub(r'<form[^>]*class="[^"]*subscription[^"]*"[^>]*>.*?</form>', '', html, flags=re.DOTALL)
+    # Remove "subscribe" CTA divs with class containing "preamble" or "paywall"
+    html = re.sub(
+        r'<div[^>]*class="[^"]*(?:preamble|paywall|subscribe-widget)[^"]*"[^>]*>.*?</div>',
+        '', html, flags=re.DOTALL,
+    )
+    # Remove button-wrapper divs that contain subscribe links
+    html = re.sub(
+        r'<div[^>]*class="[^"]*button-wrapper[^"]*"[^>]*>.*?</div>',
+        '', html, flags=re.DOTALL,
+    )
+    return html
+
+
 class SubstackHTMLParser(HTMLParser):
-    """Extract text and image URLs from Substack post HTML."""
+    """Extract interleaved text and image blocks from Substack post HTML."""
 
     def __init__(self):
         super().__init__()
-        self.text_parts = []
-        self.image_urls = []
+        self._text_buf = []       # accumulates text for current text block
+        self.blocks = []          # list of ("text", str) | ("image", url)
         self._skip = False
-        self._skip_tags = {"script", "style", "noscript"}
+        self._skip_tags = {"script", "style", "noscript", "form"}
         self._in_tag_stack = []
+
+    def _flush_text(self):
+        """Flush accumulated text buffer as a text block."""
+        text = "".join(self._text_buf).strip()
+        if text:
+            self.blocks.append(("text", text))
+        self._text_buf = []
 
     def handle_starttag(self, tag, attrs):
         attrs_dict = dict(attrs)
@@ -94,54 +125,79 @@ class SubstackHTMLParser(HTMLParser):
             self._skip = True
             self._in_tag_stack.append(tag)
             return
+        # Skip divs that are subscription widgets or paywall blocks
+        if tag == "div":
+            cls = attrs_dict.get("class", "")
+            if any(kw in cls for kw in ("subscription-widget", "paywall", "preamble")):
+                self._skip = True
+                self._in_tag_stack.append(tag)
+                return
         if tag == "img":
             src = attrs_dict.get("src", "")
             if src and not src.startswith("data:"):
-                self.image_urls.append(src)
+                # Flush any text before this image, then insert image block
+                self._flush_text()
+                self.blocks.append(("image", src))
         if tag == "br":
-            self.text_parts.append("\n")
+            self._text_buf.append("\n")
         if tag == "p":
-            self.text_parts.append("\n\n")
+            self._text_buf.append("\n\n")
         if tag in ("h1", "h2", "h3", "h4"):
-            self.text_parts.append("\n\n")
+            self._text_buf.append("\n\n")
 
     def handle_endtag(self, tag):
         if self._in_tag_stack and self._in_tag_stack[-1] == tag:
             self._in_tag_stack.pop()
             if not self._in_tag_stack:
                 self._skip = False
+            return
         if tag in ("p", "div", "li", "h1", "h2", "h3", "h4"):
-            self.text_parts.append("\n")
+            self._text_buf.append("\n")
 
     def handle_data(self, data):
         if not self._skip:
-            self.text_parts.append(data)
+            self._text_buf.append(data)
 
-    def get_text(self):
-        text = re.sub(r'\n{3,}', '\n\n', "".join(self.text_parts)).strip()
-        # Strip common Substack navigation/footer artifacts
-        for marker in [
-            "PreviousNext",
-            "Discussion about this post",
-            "CommentsRestacks",
-            "Ready for more?",
-            "TopLatestDiscussions",
-            "No posts",
-            "SubscribeSign in",
-            "Subscribe now",
-        ]:
-            idx = text.find(marker)
-            if idx != -1:
-                text = text[:idx].rstrip()
-                break
-        return text
+    def get_blocks(self):
+        """Return interleaved content blocks with footer artifacts stripped."""
+        self._flush_text()
+
+        # Strip footer artifacts from the last text block
+        if self.blocks:
+            last_idx = None
+            for i in range(len(self.blocks) - 1, -1, -1):
+                if self.blocks[i][0] == "text":
+                    last_idx = i
+                    break
+            if last_idx is not None:
+                text = self.blocks[last_idx][1]
+                for marker in [
+                    "PreviousNext",
+                    "Discussion about this post",
+                    "CommentsRestacks",
+                    "Ready for more?",
+                    "TopLatestDiscussions",
+                ]:
+                    # Only strip if marker is in the last 15% of the text
+                    cutoff_pos = int(len(text) * 0.85)
+                    idx = text.find(marker, cutoff_pos)
+                    if idx != -1:
+                        text = text[:idx].rstrip()
+                        break
+                if text:
+                    self.blocks[last_idx] = ("text", text)
+                else:
+                    self.blocks.pop(last_idx)
+
+        return self.blocks
 
 
 def parse_html_content(html):
-    """Parse HTML and return (text, image_urls)."""
+    """Parse HTML and return list of interleaved ("text", str) / ("image", url) blocks."""
+    html = _strip_substack_widgets(html)
     parser = SubstackHTMLParser()
     parser.feed(html)
-    return parser.get_text(), parser.image_urls
+    return parser.get_blocks()
 
 
 # ---------------------------------------------------------------------------
@@ -267,21 +323,24 @@ class SubstackFetcher:
 
             print(f"Fetching post {i+1}/{len(post_metas)}: {title}")
             body_html, post_url = self.fetch_post_content(meta)
-            body_text, image_urls = parse_html_content(body_html)
+            blocks = parse_html_content(body_html)
 
-            image_paths = []
-            if download_images and Image:
-                for img_url in image_urls:
-                    path = self.download_image(img_url, tmpdir)
-                    if path:
-                        image_paths.append(path)
+            # Download images inline, replacing URL blocks with local paths
+            content = []
+            for block_type, block_value in blocks:
+                if block_type == "image":
+                    if download_images and Image:
+                        path = self.download_image(block_value, tmpdir)
+                        if path:
+                            content.append(("image", path))
+                else:
+                    content.append((block_type, block_value))
 
             posts.append(Post(
                 title=title,
                 subtitle=subtitle,
                 date=post_date,
-                body=body_text,
-                images=image_paths,
+                content=content,
                 url=post_url,
             ))
 
@@ -377,21 +436,22 @@ class FacebookFetcher:
             # Use first line as title if no explicit title
             lines = message.strip().split("\n")
             title = lines[0][:80] if lines[0] else f"Post from {post_date.strftime('%Y-%m-%d')}"
-            body = message
 
-            image_paths = []
+            # Build interleaved content: image at top (if present), then text
+            content = []
             if download_images and Image:
                 pic_url = raw.get("full_picture")
                 if pic_url:
                     path = self.download_image(pic_url, tmpdir)
                     if path:
-                        image_paths.append(path)
+                        content.append(("image", path))
+            if message:
+                content.append(("text", message))
 
             posts.append(Post(
                 title=title,
                 date=post_date,
-                body=body,
-                images=image_paths,
+                content=content,
             ))
 
         posts.sort(key=lambda p: p.date)
@@ -534,24 +594,21 @@ class BookRenderer:
             date_str += f" &mdash; {self._escape_xml(post.subtitle)}"
         elements.append(Paragraph(date_str, self.styles["ChapterDate"]))
 
-        # Body text — split into paragraphs on double newlines
-        body = post.body.strip()
-        if body:
-            paragraphs = re.split(r'\n\n+', body)
-            for para in paragraphs:
-                para = para.strip()
-                if para:
-                    # Convert single newlines to <br/> for reportlab
-                    para_text = self._escape_xml(para).replace("\n", "<br/>")
-                    elements.append(Paragraph(para_text, self.styles["BodyText2"]))
-
-        # Embedded images
-        for img_path in post.images:
-            img_flowable = self._make_image_flowable(img_path)
-            if img_flowable:
-                elements.append(Spacer(1, 0.15 * inch))
-                elements.append(img_flowable)
-                elements.append(Spacer(1, 0.15 * inch))
+        # Render interleaved content blocks in order
+        for block_type, block_value in post.content:
+            if block_type == "text":
+                paragraphs = re.split(r'\n\n+', block_value.strip())
+                for para in paragraphs:
+                    para = para.strip()
+                    if para:
+                        para_text = self._escape_xml(para).replace("\n", "<br/>")
+                        elements.append(Paragraph(para_text, self.styles["BodyText2"]))
+            elif block_type == "image":
+                img_flowable = self._make_image_flowable(block_value)
+                if img_flowable:
+                    elements.append(Spacer(1, 0.15 * inch))
+                    elements.append(img_flowable)
+                    elements.append(Spacer(1, 0.15 * inch))
 
         elements.append(PageBreak())
         return elements
