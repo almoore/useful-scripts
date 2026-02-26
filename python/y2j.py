@@ -1,17 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 YAML for command line.
 """
-
-from __future__ import print_function
 
 import sys
 import os.path
 import yaml
 import json
 import re
-
-PY3 = sys.version_info[0] >= 3
 
 EXNAME = os.path.basename(sys.argv[0])
 
@@ -72,7 +68,7 @@ def main(args):  ## pylint: disable=too-many-branches
     #     stdout(HELP)
     #     exit(0)
     
-    contents = yaml.load(sys.stdin)
+    contents = yaml.safe_load(sys.stdin)
     print(json_dump(contents))
     
 if __name__ == "__main__":

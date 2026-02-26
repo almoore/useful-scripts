@@ -80,7 +80,7 @@ def flatten_post_data(posts):
                 if post_content is None:
                     post_content = content
                 else:
-                    "\n".join([post_content, content])
+                    post_content = "\n".join([post_content, content])
         post["content"] = post_content
     return posts
 
