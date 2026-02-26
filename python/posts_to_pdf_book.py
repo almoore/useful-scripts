@@ -424,7 +424,14 @@ class FacebookFetcher:
             )
 
     def _get_paginated_posts(self, limit=500, fields=None, params=None):
-        """Fetch paginated posts from the Facebook Graph API."""
+        """Fetch all paginated posts from the Facebook Graph API.
+
+        Follows pagination cursors through all available pages, merging
+        query parameters from each ``next`` URL (mirrors the approach in
+        facebook_profile_csv.py).
+        """
+        from urllib.parse import urlparse, parse_qs
+
         all_posts = []
         request_params = {
             "access_token": self.access_token,
@@ -436,20 +443,21 @@ class FacebookFetcher:
             request_params["fields"] = ",".join(fields)
 
         url = self.API_BASE
-        while url and len(all_posts) < limit:
+        while url:
+            parsed_url = urlparse(url)
+            query_params = parse_qs(parsed_url.query)
+            request_params = {**request_params, **query_params}
             response = requests.get(url, params=request_params)
             if response.status_code == 200:
                 data = response.json()
                 all_posts.extend(data.get("data", []))
                 url = data.get("paging", {}).get("next")
-                # After first request, params are embedded in the next URL
-                request_params = {}
                 print(f"Fetched {len(all_posts)} Facebook posts so far...")
             else:
                 print(f"Facebook API error: {response.status_code} {response.text}")
                 break
 
-        return all_posts[:limit]
+        return all_posts
 
     def download_image(self, url, tmpdir):
         """Download an image and return local path."""
@@ -500,12 +508,17 @@ class FacebookFetcher:
         return urls
 
     def fetch_posts(self, limit=500, since=None, until=None, download_images=True):
-        """Fetch posts and return list of Post objects."""
+        """Fetch posts and return list of Post objects.
+
+        Includes hidden posts (via include_hidden) and uses backdated_time
+        when present so backdated posts sort to their intended date.
+        """
         fields = [
-            "message", "created_time", "full_picture",
+            "message", "created_time", "backdated_time", "is_hidden",
+            "full_picture",
             "attachments{media,type,subattachments{media,type}}",
         ]
-        params = {}
+        params = {"include_hidden": "true"}
         if since:
             params["since"] = int(since.timestamp())
         if until:
@@ -515,18 +528,43 @@ class FacebookFetcher:
         posts = []
         tmpdir = tempfile.mkdtemp(prefix="facebook_images_")
 
+        hidden_count = sum(1 for r in raw_posts if r.get("is_hidden"))
+        backdated_count = sum(1 for r in raw_posts if r.get("backdated_time"))
+        if hidden_count:
+            print(f"  Including {hidden_count} hidden post(s)")
+        if backdated_count:
+            print(f"  Found {backdated_count} backdated post(s)")
+
         for raw in raw_posts:
             message = raw.get("message", "")
-            created = raw.get("created_time", "")
+            # Prefer backdated_time (the user-intended date) over created_time
+            date_str = raw.get("backdated_time") or raw.get("created_time", "")
             try:
-                post_date = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                post_date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
                 post_date = post_date.replace(tzinfo=None)
             except (ValueError, AttributeError):
                 post_date = datetime.now()
 
-            # Use first line as title if no explicit title
+            # Use first sentence of first line as title
             lines = message.strip().split("\n")
-            title = lines[0][:80] if lines[0] else f"Post from {post_date.strftime('%Y-%m-%d')}"
+            first_line = lines[0].strip() if lines[0] else ""
+            if not first_line:
+                title = f"Post from {post_date.strftime('%Y-%m-%d')}"
+            elif len(first_line) <= 100:
+                title = first_line
+            else:
+                # Try to break at sentence end
+                for sep in (". ", "! ", "? "):
+                    idx = first_line.find(sep, 30)
+                    if 0 < idx <= 100:
+                        title = first_line[:idx + 1]
+                        break
+                else:
+                    # Break at last word boundary before 100 chars
+                    title = first_line[:100].rsplit(" ", 1)[0]
+                    if len(title) < 30:
+                        title = first_line[:100]
+                    title += "..."
 
             # Build interleaved content: images at top, then text
             content = []
@@ -634,52 +672,205 @@ class BookRenderer:
         'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
         'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9',
     }
+    _emoji_cache = {}  # maps emoji char(s) -> PNG path
+    _emoji_tmpdir = None
+    _emoji_swift_path = None
+
+    # Swift helper that uses macOS CoreText for full-color emoji rendering,
+    # including flag tag sequences and ZWJ families.
+    _SWIFT_SOURCE = '''\
+import AppKit
+import Foundation
+
+let args = CommandLine.arguments
+guard args.count >= 3 else { exit(1) }
+let emoji = args[1]
+let outPath = args[2]
+let size = CGFloat(64)
+
+let attributes: [NSAttributedString.Key: Any] = [
+    .font: NSFont.systemFont(ofSize: size)
+]
+let attrStr = NSAttributedString(string: emoji, attributes: attributes)
+let line = CTLineCreateWithAttributedString(attrStr)
+let bounds = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
+
+let width = Int(ceil(bounds.width)) + 8
+let height = Int(ceil(bounds.height)) + 8
+guard width > 8 && height > 8 else { exit(1) }
+
+let colorSpace = CGColorSpaceCreateDeviceRGB()
+guard let context = CGContext(data: nil, width: width, height: height,
+    bitsPerComponent: 8, bytesPerRow: width * 4,
+    space: colorSpace,
+    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { exit(1) }
+
+context.textPosition = CGPoint(x: 4 - bounds.origin.x, y: 4 - bounds.origin.y)
+CTLineDraw(line, context)
+
+guard let cgImage = context.makeImage() else { exit(1) }
+let nsImage = NSImage(cgImage: cgImage, size: NSSize(width: width, height: height))
+guard let tiffData = nsImage.tiffRepresentation,
+      let bitmap = NSBitmapImageRep(data: tiffData),
+      let pngData = bitmap.representation(using: .png, properties: [:]) else { exit(1) }
+
+try! pngData.write(to: URL(fileURLWithPath: outPath))
+'''
 
     @classmethod
-    def _replace_emoji(cls, text):
-        """Replace fancy Unicode with plain text; strip emoji and symbols.
+    def _ensure_emoji_env(cls):
+        """Set up temp dir and compile Swift emoji renderer on first use."""
+        if cls._emoji_tmpdir is None:
+            cls._emoji_tmpdir = tempfile.mkdtemp(prefix="emoji_render_")
+            swift_src = os.path.join(cls._emoji_tmpdir, "render_emoji.swift")
+            with open(swift_src, "w") as f:
+                f.write(cls._SWIFT_SOURCE)
+            cls._emoji_swift_path = swift_src
 
-        - Mathematical styled letters/digits (U+1D400+) -> plain ASCII
-        - Tag/variation sequences -> stripped
-        - Emoji and symbols (hearts, roses, etc.) -> stripped
+    @classmethod
+    def _render_emoji_image(cls, emoji_str):
+        """Render an emoji string to a PNG file using macOS CoreText."""
+        if emoji_str in cls._emoji_cache:
+            return cls._emoji_cache[emoji_str]
+        cls._ensure_emoji_env()
+        fname = os.path.join(
+            cls._emoji_tmpdir,
+            f"emoji_{hash(emoji_str) & 0xFFFFFFFF:08x}.png",
+        )
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["swift", cls._emoji_swift_path, emoji_str, fname],
+                capture_output=True, timeout=15,
+            )
+            if result.returncode == 0 and os.path.exists(fname):
+                cls._emoji_cache[emoji_str] = fname
+                return fname
+        except Exception:
+            pass
+        return None
+
+    # Regex to split text into emoji sequences vs plain text runs.
+    # Matches: flag sequences, ZWJ sequences, keycap sequences,
+    # and standalone emoji/symbol characters.
+    _EMOJI_SEQ_RE = re.compile(
+        r'('
+        # Flag sequences: base flag + tag chars + cancel tag
+        r'[\U0001F3F4][\U000E0000-\U000E007F]+'
+        r'|'
+        # ZWJ sequences: emoji (+ optional modifier/VS) joined by ZWJ
+        r'(?:[^\u0000-\u007F][\uFE0E\uFE0F]?'
+        r'(?:\u200D[^\u0000-\u007F][\uFE0E\uFE0F]?)+'
+        r')'
+        r'|'
+        # Keycap sequences: digit + VS16 + combining enclosing keycap
+        r'[\d#*]\uFE0F?\u20E3'
+        r'|'
+        # Regional indicator pairs (country flags)
+        r'[\U0001F1E0-\U0001F1FF]{2}'
+        r'|'
+        # Single emoji with optional variation selector
+        r'[^\u0000-\u007F]\uFE0F?'
+        r')'
+    )
+
+    @classmethod
+    def _process_text(cls, text):
+        """Convert fancy Unicode and emoji in text for reportlab Paragraph XML.
+
+        - Emoji sequences (flags, ZWJ families, etc.) -> inline <img> tags
+        - Mathematical styled letters/digits -> plain ASCII
+        - Other emoji/symbols -> inline <img> tags
+        Returns XML-safe string with embedded <img> tags for emoji.
         """
-        # Strip tag sequences (flag emoji), variation selectors, zero-width joiners
-        text = re.sub(r'[\U000E0000-\U000E007F\uFE0E\uFE0F\u200D]', '', text)
+        result = []
+        last_end = 0
+        for m in cls._EMOJI_SEQ_RE.finditer(text):
+            # Process any plain text before this match
+            if m.start() > last_end:
+                result.append(cls._process_plain(text[last_end:m.start()]))
+            seq = m.group(0)
+            # Check if this is actually just a normal character
+            if len(seq) == 1 and ord(seq) <= 0xFFFF:
+                cat = unicodedata.category(seq)
+                if cat not in ('So', 'Sk', 'Cn'):
+                    result.append(cls._escape_char(seq))
+                    last_end = m.end()
+                    continue
+            # Check if it's a math character (single char, no modifiers)
+            if len(seq) == 1 or (len(seq) == 2 and seq[1] in '\uFE0E\uFE0F'):
+                base = seq[0]
+                name = unicodedata.name(base, '').lower()
+                if name.startswith('mathematical'):
+                    plain = cls._math_to_ascii(name)
+                    if plain:
+                        result.append(plain)
+                        last_end = m.end()
+                        continue
+            # Render the full emoji sequence as an inline image
+            img_path = cls._render_emoji_image(seq)
+            if img_path:
+                result.append(
+                    f'<img src="{img_path}" width="14" height="14" valign="-2"/>'
+                )
+            last_end = m.end()
+        # Process any trailing plain text
+        if last_end < len(text):
+            result.append(cls._process_plain(text[last_end:]))
+        return ''.join(result)
+
+    @classmethod
+    def _math_to_ascii(cls, name):
+        """Convert a Unicode mathematical character name to plain ASCII."""
+        m = cls._MATH_CHAR_RE.match(name)
+        if not m:
+            return None
+        plain = m.group(1)
+        if plain in cls._DIGIT_NAMES:
+            return cls._DIGIT_NAMES[plain]
+        if len(plain) == 1:
+            return plain.upper() if 'capital' in name else plain
+        return plain
+
+    @staticmethod
+    def _escape_char(ch):
+        if ch == '&':
+            return '&amp;'
+        if ch == '<':
+            return '&lt;'
+        if ch == '>':
+            return '&gt;'
+        return ch
+
+    @classmethod
+    def _process_plain(cls, text):
+        """Process a run of plain (non-emoji-sequence) text."""
         result = []
         for ch in text:
             cp = ord(ch)
             cat = unicodedata.category(ch)
-            # Normal BMP characters that reportlab can render
             if cp <= 0xFFFF and cat not in ('So', 'Sk', 'Cn'):
-                result.append(ch)
+                result.append(cls._escape_char(ch))
                 continue
             name = unicodedata.name(ch, '').lower()
             if not name:
                 continue
-            # Mathematical styled characters -> plain ASCII
             if name.startswith('mathematical'):
-                m = cls._MATH_CHAR_RE.match(name)
-                if m:
-                    plain = m.group(1)
-                    if plain in cls._DIGIT_NAMES:
-                        result.append(cls._DIGIT_NAMES[plain])
-                    elif len(plain) == 1:
-                        if 'capital' in name:
-                            result.append(plain.upper())
-                        else:
-                            result.append(plain)
-                    else:
-                        result.append(plain)
-            # All other emoji/symbols are silently stripped
+                plain = cls._math_to_ascii(name)
+                if plain:
+                    result.append(plain)
+                continue
+            # Stray emoji/symbol outside a sequence
+            img_path = cls._render_emoji_image(ch)
+            if img_path:
+                result.append(
+                    f'<img src="{img_path}" width="14" height="14" valign="-2"/>'
+                )
         return ''.join(result)
 
     def _escape_xml(self, text):
         """Escape text for use in reportlab Paragraph XML."""
-        text = self._replace_emoji(text)
-        text = text.replace("&", "&amp;")
-        text = text.replace("<", "&lt;")
-        text = text.replace(">", "&gt;")
-        return text
+        return self._process_text(text)
 
     def _build_title_page(self, posts):
         """Build title page elements."""
@@ -730,7 +921,8 @@ class BookRenderer:
         """Build flowable elements for a single post chapter."""
         elements = []
         title_text = self._escape_xml(post.title)
-        elements.append(Paragraph(title_text, self.styles["ChapterTitle"]))
+        anchor = f'<a name="post_{index}"/>'
+        elements.append(Paragraph(f'{anchor}{title_text}', self.styles["ChapterTitle"]))
 
         date_str = post.date.strftime("%B %d, %Y")
         if post.subtitle:
@@ -831,7 +1023,10 @@ class BookRenderer:
                 display_page = raw_page
             title_escaped = self._escape_xml(post.title)
             date_short = post.date.strftime("%Y-%m-%d")
-            toc_line = f"{title_escaped} <font color='#888888'>({date_short})</font>"
+            toc_line = (
+                f'<a href="#post_{i}" color="blue">{title_escaped}</a>'
+                f' <font color="#888888">({date_short})</font>'
+            )
             # Right-aligned page number using a table
             toc_data = [[
                 Paragraph(toc_line, self.styles["TOCEntry"]),
