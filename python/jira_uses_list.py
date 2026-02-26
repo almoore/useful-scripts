@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-from git_jira_branch import *
-from atlassian import Jira
-from jira import JIRA, User
-import sys
-sys.argv.append('')
-args = parse_args()
-profile = 'default'
-full_conf = get_conf(conf_path=args.conf)
-conf = full_conf.get(args.profile, {})
+"""
+List all users in a Jira group.
 
-jira = JIRA(server=conf["url"], basic_auth=(conf["username"], conf["password"]))
-group = 'jira-software-users'
+Usage:
+    python jira_uses_list.py --group jira-software-users
+    python jira_uses_list.py --group jira-software-users --verbose
+"""
+import argparse
 
-def get_all_user_in_group(group)
+from jira import User
+
+from jira_auth import setup_jira_client
+
+
+def get_all_users_in_group(jira, group):
+    """Fetch all users in a Jira group, handling pagination."""
     params = {'groupname': group, 'expand': "users"}
     r = jira._get_json('group', params=params)
     size = r['users']['size']
@@ -26,53 +28,44 @@ def get_all_user_in_group(group)
             r['users']['items'].append(user)
         end_index = r2['users']['end-index']
         size = r['users']['size']
-    result = r['users']['items']
-    return result
+    return r['users']['items']
 
-def get_user(jira, id, accountId=None, expand=None):
-    """Get a user Resource from the server.
 
-    :param id: ID of the user to get
-    :param accountId: extra information to fetch inside each resource
-    :param expand: extra information to fetch inside each resource
-    """
+def get_user(jira, user_id, accountId=None, expand=None):
+    """Get a user Resource from the server."""
     user = User(jira._options, jira._session)
     params = {}
     if accountId:
         params['accountId'] = accountId
     if expand is not None:
         params['expand'] = expand
-    user.find(id, params=params)
+    user.find(user_id, params=params)
     return user
 
-def add_user_to_group(self, username, group):
-    """Add a user to an existing group.
 
-    :param username: Username that will be added to specified group.
-    :param group: Group that the user will be added to.
-    :return: json response from Jira server for success or a value that evaluates as False in case of failure.
-    """
-    url = self._options['server'] + '/rest/api/latest/group/user'
-    x = {'groupname': group}
-    y = {'name': username}
-
-    payload = json.dumps(y)
-
-    r = json_loads(self._session.post(url, params=x, data=payload))
-    if 'name' not in r or r['name'] != group:
-        return False
-    else:
-        return r
-
-users = get_all_user_in_group(group)
-for user in users:
-    u = get_user(jira, user, accountId=user['accountId'])
-    print(u)
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="List all users in a Jira group.",
+    )
+    parser.add_argument('--group', default='jira-software-users',
+                        help='Jira group name to list users from.')
+    parser.add_argument('--force-password', default=False, action='store_true',
+                        help='Force prompting for password.')
+    parser.add_argument('-v', '--verbose', default=False, action='store_true',
+                        help='More verbose logging.')
+    return parser.parse_args()
 
 
+def main():
+    args = parse_args()
+    jira = setup_jira_client(force_password=args.force_password, verbose=args.verbose)
+
+    users = get_all_users_in_group(jira, args.group)
+    print(f"Found {len(users)} user(s) in group '{args.group}':")
+    for user in users:
+        u = get_user(jira, user, accountId=user['accountId'])
+        print(f"  {u.displayName} ({u.accountId})")
 
 
-
-# Atlassian jira
-jira = Jira(url=conf["url"], username=conf["username"], password=conf["password"])
-jira.get_all_users_from_group(group)
+if __name__ == "__main__":
+    main()
