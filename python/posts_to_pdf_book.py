@@ -40,6 +40,7 @@ import csv
 import json
 import os
 import re
+import shutil
 import tempfile
 import unicodedata
 from dataclasses import dataclass, field
@@ -1406,6 +1407,31 @@ def save_posts(posts, path):
     print(f"Saved {len(posts)} posts to {path}")
 
 
+def save_photos(posts, output_dir):
+    """Save post images to a directory, named by post title and date."""
+    os.makedirs(output_dir, exist_ok=True)
+    total = 0
+    for post in posts:
+        image_blocks = [(t, v) for t, v in post.content if t == "image"]
+        if not image_blocks:
+            continue
+        date_str = post.date.strftime("%Y-%m-%d")
+        # Normalize Unicode (e.g. math-styled 𝐇𝐚𝐩𝐩𝐲 -> Happy) before sanitizing
+        normalized = unicodedata.normalize("NFKD", post.title)
+        safe_title = re.sub(r'[^a-z0-9]+', '-', normalized.lower()).strip('-')[:80]
+        multi = len(image_blocks) > 1
+        for i, (_, src_path) in enumerate(image_blocks, 1):
+            ext = os.path.splitext(src_path)[1] or ".jpg"
+            if multi:
+                fname = f"{date_str}_{safe_title}_{i}{ext}"
+            else:
+                fname = f"{date_str}_{safe_title}{ext}"
+            dest = os.path.join(output_dir, fname)
+            shutil.copy2(src_path, dest)
+            total += 1
+    print(f"Saved {total} photo(s) to {output_dir}")
+
+
 def load_posts_from_file(path):
     """Load posts from a JSON or YAML file."""
     ext = os.path.splitext(path)[1].lower()
@@ -1531,6 +1557,10 @@ def parse_args():
         "--input-file", metavar="PATH",
         help="Path to a saved posts file (use with --source file).",
     )
+    parser.add_argument(
+        "--save-photos", metavar="DIR",
+        help="Save post photos to a directory, named by post title and date.",
+    )
     return parser.parse_args()
 
 
@@ -1604,6 +1634,10 @@ def main():
     # Save posts if requested
     if args.save_posts:
         save_posts(posts, args.save_posts)
+
+    # Save photos if requested
+    if args.save_photos:
+        save_photos(posts, args.save_photos)
 
     print(f"Rendering {len(posts)} posts to PDF...")
     renderer = BookRenderer(
