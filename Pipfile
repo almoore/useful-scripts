@@ -15,6 +15,7 @@ pytz = "*"
 pypdf2 = "*"
 reportlab = "*"
 pillow = "*"
+browser-cookie3 = "*"
 flask = "*"
 urllib3 = "*"
 
