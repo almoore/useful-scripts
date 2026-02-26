@@ -1,37 +1,45 @@
 #!/usr/bin/env python3
+"""
+Remove ANSI color/escape codes from files.
+
+Usage:
+    python remove-colors.py input.log
+    python remove-colors.py input.log -o cleaned.log
+"""
 import re
 import sys
 import argparse
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument
-
-    
 def remove_colors(data):
-    color_sym_re = re.compile(rb'\x1b\[[0-9]+m')
+    color_sym_re = re.compile(rb'\x1b\[[0-9;]*m')
     return color_sym_re.sub(b'', data)
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Remove ANSI color/escape codes from files.",
+    )
+    parser.add_argument("input", help="Input file to strip colors from.")
+    parser.add_argument("-o", "--output",
+                        help="Output file (default: overwrite input file in-place).")
+    return parser.parse_args()
+
+
 def main():
-    if len(sys.argv) < 2:
-        print('Supply a file name.')
-        sys.exit(1)
-    elif len(sys.argv) == 3:
-        filename_out = sys.argv[2]
-    else:
-        filename = sys.argv[1]
+    args = parse_args()
     try:
-        with open(filename, 'rb') as fsi:
-            data = fsi.read()
-        # Substitute in a blank string
+        with open(args.input, 'rb') as f:
+            data = f.read()
         data_out = remove_colors(data)
-        with open(filename, 'wb') as fso:
-            fso.write(data_out)
+        output_path = args.output or args.input
+        with open(output_path, 'wb') as f:
+            f.write(data_out)
+        print(f"Wrote cleaned output to {output_path}")
     except FileNotFoundError as e:
-      print(e)
-      sys.exit(1)
-    
+        print(e, file=sys.stderr)
+        sys.exit(1)
+
+
 if __name__ == '__main__':
     main()

@@ -1,28 +1,23 @@
 #!/usr/bin/env python3
-import os, json, contextlib, getpass, argparse
+"""
+Jira group user management: list users in a group and add missing users
+from one group to another.
+
+Usage:
+    python jira_tools.py --group-a deloitte --group-b jira-software-users
+    python jira_tools.py --group-a deloitte --group-b jira-software-users --verbose
+"""
+import json
+import argparse
 
 from jira import JIRA, User, utils
 from atlassian import Jira
 
-try:
-    import keyring
-    HAS_KEYRING_PY = True
-except ImportError:
-    HAS_KEYRING_PY = False
+from jira_auth import setup_jira_client
 
 
-def get_conf(conf_path):
-    conf = {}
-    try:
-        with contextlib.suppress(FileNotFoundError):
-            with open(conf_path) as fs:
-                conf = json.load(fs)
-    except ValueError:
-        print('Decoding JSON has failed: ' + conf_path)
-    return conf
-
-
-def get_all_user_in_group(jira, group):
+def get_all_users_in_group(jira, group):
+    """Fetch all users in a Jira group, handling pagination."""
     params = {'groupname': group, 'expand': "users"}
     r = jira._get_json('group', params=params)
     size = r['users']['size']
@@ -36,24 +31,18 @@ def get_all_user_in_group(jira, group):
             r['users']['items'].append(user)
         end_index = r2['users']['end-index']
         size = r['users']['size']
-    result = r['users']['items']
-    return result
+    return r['users']['items']
 
 
-def get_user(jira, id, accountId=None, expand=None):
-    """Get a user Resource from the server.
-
-    :param id: ID of the user to get
-    :param accountId: extra information to fetch inside each resource
-    :param expand: extra information to fetch inside each resource
-    """
+def get_user(jira, user_id, accountId=None, expand=None):
+    """Get a user Resource from the server."""
     user = User(jira._options, jira._session)
     params = {}
     if accountId:
         params['accountId'] = accountId
     if expand is not None:
         params['expand'] = expand
-    user.find(id, params=params)
+    user.find(user_id, params=params)
     return user
 
 
@@ -62,7 +51,7 @@ def add_user_to_group(jira, accountId, group):
 
     :param accountId: users account ID that will be added to specified group.
     :param group: Group that the user will be added to.
-    :return: json response from Jira server for success or a value that evaluates as False in case of failure.
+    :return: json response from Jira server for success or False on failure.
     """
     url = jira._options['server'] + '/rest/api/latest/group/user'
     x = {'groupname': group}
@@ -77,34 +66,14 @@ def add_user_to_group(jira, accountId, group):
         return r
 
 
-def get_user_auth_input(conf):
-    if not conf.get('username'):
-        conf['username'] = str(input('Enter your jira username: '))
-    if not conf.get('password'):
-        conf['password'] = getpass.getpass()
-    return conf
-
-
-def setup_jira_client(force_password=False, verbose=False):
-    profile = os.getenv('JIRA_PROFILE', 'default')
-    user_base = os.path.expanduser('~')
-    conf_path = os.path.join(user_base, '.atlassian-conf.json')
-    full_conf = get_conf(conf_path=conf_path)
-    conf = full_conf.get(profile, {})
-    if force_password:
-        conf.pop("password", None)
-    if HAS_KEYRING_PY and conf.get("username") and not force_password:
-        if verbose:
-            print("Getting password from keyring {url}: {username}".format(**conf))
-        conf["password"] = keyring.get_password(conf["url"], conf["username"])
-    conf = get_user_auth_input(conf)
-    if HAS_KEYRING_PY and conf.get("password"):
-        keyring.set_password(conf["url"], conf["username"], conf["password"])
-    return JIRA(server=conf["url"], basic_auth=(conf["username"], conf["password"]))
-
-
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Manage Jira group membership.",
+    )
+    parser.add_argument('--group-a', default='deloitte',
+                        help='Source group to read users from.')
+    parser.add_argument('--group-b', default='jira-software-users',
+                        help='Target group to add missing users to.')
     parser.add_argument('--force-password', default=False, action='store_true',
                         help='Force prompting for password (useful when token has expired)')
     parser.add_argument('-v', '--verbose', default=False, action='store_true',
@@ -115,17 +84,15 @@ def parse_args():
 def main():
     args = parse_args()
     jira = setup_jira_client(force_password=args.force_password, verbose=args.verbose)
-    group = 'deloitte'
-    group_b = 'jira-sotware-users'
 
-    users = get_all_user_in_group(jira, group)
-    users_b = get_all_user_in_group(jira, group_b)
+    users = get_all_users_in_group(jira, args.group_a)
+    users_b = get_all_users_in_group(jira, args.group_b)
     for user in users:
         u = get_user(jira, user, accountId=user['accountId'])
         print(f"Found {u.displayName}: {u.self}")
         if user not in users_b and u.accountType == "atlassian":
-            add_user_to_group(jira, u.accountId, group_b)
-            print(f"Added user {u.displayName} to {group_b}")
+            add_user_to_group(jira, u.accountId, args.group_b)
+            print(f"Added user {u.displayName} to {args.group_b}")
 
 
 if __name__ == "__main__":
