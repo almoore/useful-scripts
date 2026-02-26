@@ -555,22 +555,38 @@ class FacebookFetcher:
 
         return urls
 
-    def fetch_posts(self, limit=500, since=None, until=None, download_images=True):
+    def fetch_posts(self, limit=500, since=None, until=None,
+                    download_images=True, search_start=90, search_end=90):
         """Fetch posts and return list of Post objects.
 
         Includes hidden posts (via include_hidden) and uses backdated_time
         when present so backdated posts sort to their intended date.
+
+        Date filtering is applied client-side against the effective post date
+        (backdated_time when present, otherwise created_time) so that
+        backdated posts are correctly included or excluded regardless of
+        when they were actually created.
+
+        Args:
+            search_start: Days before ``since`` to widen the API query.
+            search_end: Days after ``until`` to widen the API query.
         """
+        from datetime import timedelta
+
         fields = [
             "message", "created_time", "backdated_time", "is_hidden",
             "full_picture",
             "attachments{media,type,subattachments{media,type}}",
         ]
         params = {"include_hidden": "true"}
+
+        # Widen the API query window to catch posts whose created_time
+        # differs from their backdated_time, then filter client-side on
+        # the effective date.
         if since:
-            params["since"] = int(since.timestamp())
+            params["since"] = int((since - timedelta(days=search_start)).timestamp())
         if until:
-            params["until"] = int(until.timestamp())
+            params["until"] = int((until + timedelta(days=search_end)).timestamp())
 
         raw_posts = self._get_paginated_posts(limit=limit, fields=fields, params=params)
         posts = []
@@ -583,6 +599,7 @@ class FacebookFetcher:
         if backdated_count:
             print(f"  Found {backdated_count} backdated post(s)")
 
+        skipped = 0
         for raw in raw_posts:
             message = raw.get("message", "")
             # Prefer backdated_time (the user-intended date) over created_time
@@ -592,6 +609,14 @@ class FacebookFetcher:
                 post_date = post_date.replace(tzinfo=None)
             except (ValueError, AttributeError):
                 post_date = datetime.now()
+
+            # Client-side date filter on the effective (possibly backdated) date
+            if since and post_date < since:
+                skipped += 1
+                continue
+            if until and post_date > until:
+                skipped += 1
+                continue
 
             # Use first sentence of first line as title
             lines = message.strip().split("\n")
@@ -635,6 +660,9 @@ class FacebookFetcher:
                 content=content,
             ))
 
+        if skipped:
+            debug_print(f"Skipped {skipped} post(s) outside date range "
+                         f"(from widened API query)")
         posts.sort(key=lambda p: p.date)
         print(f"Fetched {len(posts)} Facebook posts total.")
         return posts
@@ -1515,6 +1543,16 @@ def parse_args():
         help="End date filter (YYYY-MM-DD).",
     )
     parser.add_argument(
+        "--search-start", type=int, default=90,
+        help="Days before --since to widen the Facebook API query, "
+             "catching backdated posts (default: 90).",
+    )
+    parser.add_argument(
+        "--search-end", type=int, default=90,
+        help="Days after --until to widen the Facebook API query, "
+             "catching backdated posts (default: 90).",
+    )
+    parser.add_argument(
         "--limit", type=int, default=50,
         help="Maximum number of posts to fetch (default: 50).",
     )
@@ -1623,6 +1661,8 @@ def main():
             since=since,
             until=until,
             download_images=download_images,
+            search_start=args.search_start,
+            search_end=args.search_end,
         )
 
     title = args.title or default_title
