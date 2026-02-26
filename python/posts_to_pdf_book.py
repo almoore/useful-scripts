@@ -31,6 +31,7 @@ import argparse
 import os
 import re
 import tempfile
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime
 from html.parser import HTMLParser
@@ -45,6 +46,11 @@ try:
 except ImportError:
     Image = None
     print("Warning: Pillow not installed. Image embedding will be disabled.")
+
+try:
+    import browser_cookie3
+except ImportError:
+    browser_cookie3 = None
 
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import letter
@@ -204,10 +210,59 @@ def parse_html_content(html):
 # SubstackFetcher
 # ---------------------------------------------------------------------------
 
+def _load_browser_cookies(domain, browser_name=None):
+    """Load cookies for a domain from the user's browser.
+
+    Args:
+        domain: Domain to extract cookies for (e.g. ".substack.com").
+        browser_name: Specific browser ("chrome", "firefox", "safari", "edge").
+                      If None, tries all browsers in order.
+
+    Returns:
+        A cookie jar, or None if extraction failed.
+    """
+    if not browser_cookie3:
+        print("Error: browser-cookie3 is not installed. "
+              "Install with: pip install browser-cookie3")
+        return None
+
+    browsers = {
+        "chrome": browser_cookie3.chrome,
+        "firefox": browser_cookie3.firefox,
+        "safari": browser_cookie3.safari,
+        "edge": browser_cookie3.edge,
+    }
+
+    if browser_name:
+        names = [browser_name]
+    else:
+        names = ["chrome", "firefox", "safari", "edge"]
+
+    for name in names:
+        loader = browsers.get(name)
+        if not loader:
+            continue
+        try:
+            cj = loader(domain_name=domain)
+            cookie_count = sum(1 for c in cj if domain in (c.domain or ""))
+            if cookie_count > 0:
+                print(f"Loaded {cookie_count} cookies from {name} for {domain}")
+                return cj
+        except Exception as e:
+            if browser_name:
+                print(f"Warning: Could not load cookies from {name}: {e}")
+            # Silently skip when auto-detecting
+
+    if not browser_name:
+        print("Warning: Could not find Substack cookies in any browser. "
+              "Make sure you are logged in to Substack in your browser.")
+    return None
+
+
 class SubstackFetcher:
     """Fetch posts from a Substack publication."""
 
-    def __init__(self, base_url, cookie=None):
+    def __init__(self, base_url, cookie=None, browser_cookies=None):
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
         self.session.headers.update({
@@ -215,6 +270,8 @@ class SubstackFetcher:
         })
         if cookie:
             self.session.headers.update({"Cookie": cookie})
+        elif browser_cookies is not None:
+            self.session.cookies = browser_cookies
 
     def _api_url(self, path):
         return f"{self.base_url}/api/v1{path}"
@@ -411,9 +468,43 @@ class FacebookFetcher:
             print(f"Warning: Could not download image {url}: {e}")
             return None
 
+    def _extract_image_urls(self, raw_post):
+        """Extract unique image URLs from a Facebook post.
+
+        Prefers subattachment images (multi-photo posts) over full_picture
+        to avoid duplicates, since full_picture is typically a copy of
+        the first attachment image.
+        """
+        urls = []
+
+        for att in raw_post.get("attachments", {}).get("data", []):
+            # Multi-photo posts: use subattachments
+            subs = att.get("subattachments", {}).get("data", [])
+            if subs:
+                for sub in subs:
+                    src = sub.get("media", {}).get("image", {}).get("src")
+                    if src and src not in urls:
+                        urls.append(src)
+            else:
+                # Single-photo: use attachment media
+                src = att.get("media", {}).get("image", {}).get("src")
+                if src and src not in urls:
+                    urls.append(src)
+
+        # Fall back to full_picture only if no attachment images found
+        if not urls:
+            pic_url = raw_post.get("full_picture")
+            if pic_url:
+                urls.append(pic_url)
+
+        return urls
+
     def fetch_posts(self, limit=500, since=None, until=None, download_images=True):
         """Fetch posts and return list of Post objects."""
-        fields = ["message", "created_time", "full_picture", "attachments"]
+        fields = [
+            "message", "created_time", "full_picture",
+            "attachments{media,type,subattachments{media,type}}",
+        ]
         params = {}
         if since:
             params["since"] = int(since.timestamp())
@@ -437,12 +528,12 @@ class FacebookFetcher:
             lines = message.strip().split("\n")
             title = lines[0][:80] if lines[0] else f"Post from {post_date.strftime('%Y-%m-%d')}"
 
-            # Build interleaved content: image at top (if present), then text
+            # Build interleaved content: images at top, then text
             content = []
             if download_images and Image:
-                pic_url = raw.get("full_picture")
-                if pic_url:
-                    path = self.download_image(pic_url, tmpdir)
+                image_urls = self._extract_image_urls(raw)
+                for img_url in image_urls:
+                    path = self.download_image(img_url, tmpdir)
                     if path:
                         content.append(("image", path))
             if message:
@@ -531,8 +622,60 @@ class BookRenderer:
             spaceAfter=20,
         ))
 
+    # Regex to extract plain letter/digit from Unicode mathematical styled names
+    _MATH_CHAR_RE = re.compile(
+        r'^mathematical (?:sans-serif |monospace |script |fraktur )?'
+        r'(?:bold |italic |bold italic )?'
+        r'(?:capital |small )?'
+        r'(?:digit )?(.+)$'
+    )
+    # Map word digit names to actual digits
+    _DIGIT_NAMES = {
+        'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
+        'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9',
+    }
+
+    @classmethod
+    def _replace_emoji(cls, text):
+        """Replace fancy Unicode with plain text; strip emoji and symbols.
+
+        - Mathematical styled letters/digits (U+1D400+) -> plain ASCII
+        - Tag/variation sequences -> stripped
+        - Emoji and symbols (hearts, roses, etc.) -> stripped
+        """
+        # Strip tag sequences (flag emoji), variation selectors, zero-width joiners
+        text = re.sub(r'[\U000E0000-\U000E007F\uFE0E\uFE0F\u200D]', '', text)
+        result = []
+        for ch in text:
+            cp = ord(ch)
+            cat = unicodedata.category(ch)
+            # Normal BMP characters that reportlab can render
+            if cp <= 0xFFFF and cat not in ('So', 'Sk', 'Cn'):
+                result.append(ch)
+                continue
+            name = unicodedata.name(ch, '').lower()
+            if not name:
+                continue
+            # Mathematical styled characters -> plain ASCII
+            if name.startswith('mathematical'):
+                m = cls._MATH_CHAR_RE.match(name)
+                if m:
+                    plain = m.group(1)
+                    if plain in cls._DIGIT_NAMES:
+                        result.append(cls._DIGIT_NAMES[plain])
+                    elif len(plain) == 1:
+                        if 'capital' in name:
+                            result.append(plain.upper())
+                        else:
+                            result.append(plain)
+                    else:
+                        result.append(plain)
+            # All other emoji/symbols are silently stripped
+        return ''.join(result)
+
     def _escape_xml(self, text):
         """Escape text for use in reportlab Paragraph XML."""
+        text = self._replace_emoji(text)
         text = text.replace("&", "&amp;")
         text = text.replace("<", "&lt;")
         text = text.replace(">", "&gt;")
@@ -772,6 +915,13 @@ def parse_args():
         help="Session cookie for subscriber-only Substack content.",
     )
     parser.add_argument(
+        "--browser-cookies", nargs="?", const="auto", default=None,
+        metavar="BROWSER",
+        help="Load Substack cookies from your browser (requires browser-cookie3). "
+             "Optionally specify browser: chrome, firefox, safari, edge. "
+             "Default: auto-detect.",
+    )
+    parser.add_argument(
         "--facebook-token",
         help="Facebook access token (overrides FACEBOOK_ACCESS_TOKEN env var).",
     )
@@ -818,9 +968,15 @@ def main():
         if not args.substack_url:
             print("Error: --substack-url is required for Substack source.")
             raise SystemExit(1)
+        browser_cj = None
+        if args.browser_cookies and not args.substack_cookie:
+            domain = ".substack.com"
+            browser_name = None if args.browser_cookies == "auto" else args.browser_cookies
+            browser_cj = _load_browser_cookies(domain, browser_name)
         fetcher = SubstackFetcher(
             base_url=args.substack_url,
             cookie=args.substack_cookie,
+            browser_cookies=browser_cj,
         )
         default_title = args.substack_url.split("//")[-1].split(".")[0].title()
     elif args.source == "facebook":
