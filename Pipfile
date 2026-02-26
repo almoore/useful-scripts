@@ -16,6 +16,7 @@ pypdf2 = "*"
 reportlab = "*"
 pillow = "*"
 browser-cookie3 = "*"
+pyyaml = "*"
 flask = "*"
 urllib3 = "*"
 
