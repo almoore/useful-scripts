@@ -22,12 +22,22 @@ Usage:
         --title "Facebook Memories" --output fb-book.pdf \\
         --since 2020-01-01
 
+    # Save posts to file and reload
+    python posts_to_pdf_book.py --source facebook \\
+        --title "Memories" --output book.pdf --save-posts posts.json
+
+    python posts_to_pdf_book.py --source file --input-file posts.json \\
+        --title "From File" --output from-file.pdf
+
 Requires:
     - requests, reportlab, Pillow
     - Facebook source requires FACEBOOK_ACCESS_TOKEN env var
+    - YAML support requires pyyaml
 """
 
 import argparse
+import csv
+import json
 import os
 import re
 import tempfile
@@ -52,20 +62,51 @@ try:
 except ImportError:
     browser_cookie3 = None
 
+try:
+    import yaml
+except ImportError:
+    yaml = None
+
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import letter, A4, legal, A3, A5, TABLOID
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import (
+    BaseDocTemplate,
     Flowable,
+    Frame,
     Image as RLImage,
+    NextPageTemplate,
     PageBreak,
+    PageTemplate,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
     Table,
     TableStyle,
 )
+from reportlab.platypus.flowables import BalancedColumns
+
+# ---------------------------------------------------------------------------
+# Paper sizes and debug mode
+# ---------------------------------------------------------------------------
+
+PAPER_SIZES = {
+    "letter": letter,
+    "a4": A4,
+    "legal": legal,
+    "a3": A3,
+    "a5": A5,
+    "tabloid": TABLOID,
+}
+
+DEBUG = False
+
+
+def debug_print(*args):
+    """Print debug messages when DEBUG mode is enabled."""
+    if DEBUG:
+        print("[DEBUG]", *args)
 
 
 @dataclass
@@ -351,6 +392,7 @@ class SubstackFetcher:
             fname = os.path.join(tmpdir, f"img_{hash(url) & 0xFFFFFFFF:08x}{ext}")
             with open(fname, "wb") as f:
                 f.write(resp.content)
+            debug_print(f"Downloaded image: {url} -> {fname} ({len(resp.content)} bytes)")
             return fname
         except Exception as e:
             print(f"Warning: Could not download image {url}: {e}")
@@ -384,14 +426,18 @@ class SubstackFetcher:
 
             # Download images inline, replacing URL blocks with local paths
             content = []
+            img_count = 0
             for block_type, block_value in blocks:
                 if block_type == "image":
                     if download_images and Image:
                         path = self.download_image(block_value, tmpdir)
                         if path:
                             content.append(("image", path))
+                            img_count += 1
                 else:
                     content.append((block_type, block_value))
+
+            debug_print(f"Post '{title}': date={post_date}, images={img_count}")
 
             posts.append(Post(
                 title=title,
@@ -471,6 +517,7 @@ class FacebookFetcher:
             fname = os.path.join(tmpdir, f"fb_img_{hash(url) & 0xFFFFFFFF:08x}{ext}")
             with open(fname, "wb") as f:
                 f.write(resp.content)
+            debug_print(f"Downloaded image: {url} -> {fname} ({len(resp.content)} bytes)")
             return fname
         except Exception as e:
             print(f"Warning: Could not download image {url}: {e}")
@@ -568,14 +615,18 @@ class FacebookFetcher:
 
             # Build interleaved content: images at top, then text
             content = []
+            img_count = 0
             if download_images and Image:
                 image_urls = self._extract_image_urls(raw)
                 for img_url in image_urls:
                     path = self.download_image(img_url, tmpdir)
                     if path:
                         content.append(("image", path))
+                        img_count += 1
             if message:
                 content.append(("text", message))
+
+            debug_print(f"Post '{title}': date={post_date}, images={img_count}")
 
             posts.append(Post(
                 title=title,
@@ -595,14 +646,48 @@ class FacebookFetcher:
 class BookRenderer:
     """Render a list of Posts into a formatted PDF book using reportlab.platypus."""
 
-    PAGE_WIDTH, PAGE_HEIGHT = letter
     MARGIN = 0.75 * inch
 
-    def __init__(self, title="My Posts", output_path="book.pdf"):
+    def __init__(self, title="My Posts", output_path="book.pdf",
+                 paper_size="letter", columns=1, toc_columns=1,
+                 collate_photos=None):
         self.title = title
         self.output_path = output_path
+        self.columns = columns
+        self.toc_columns = toc_columns
+        self.collate_photos = collate_photos
+
+        # Paper size
+        size = PAPER_SIZES.get(paper_size, letter)
+        self.PAGE_WIDTH, self.PAGE_HEIGHT = size
+
+        # Column widths
+        # Body columns use frame-based layout (BaseDocTemplate with multiple
+        # Frame objects). TOC columns use BalancedColumns inside a single frame.
+        self._gutter = 0.25 * inch
+        usable = self.PAGE_WIDTH - 2 * self.MARGIN
+        if columns > 1:
+            self.body_col_width = (usable - self._gutter * (columns - 1)) / columns
+        else:
+            self.body_col_width = usable
+        # TOC uses BalancedColumns (0.1*inch default spacer) inside a frame
+        # that has ~12pt total padding from SimpleDocTemplate.
+        bc_spacer = 0.1 * inch
+        frame_padding = 12
+        effective = usable - frame_padding
+        if toc_columns > 1:
+            self.toc_col_width = (effective - bc_spacer * (toc_columns - 1)) / toc_columns
+        else:
+            self.toc_col_width = usable
+
         self.styles = getSampleStyleSheet()
         self._define_styles()
+
+        debug_print(f"Paper size: {paper_size} ({self.PAGE_WIDTH:.1f}x{self.PAGE_HEIGHT:.1f})")
+        debug_print(f"Columns: {columns}, TOC columns: {toc_columns}")
+        debug_print(f"Body col width: {self.body_col_width:.1f}, TOC col width: {self.toc_col_width:.1f}")
+        if collate_photos:
+            debug_print(f"Photo collation: {collate_photos}")
 
     def _define_styles(self):
         self.styles.add(ParagraphStyle(
@@ -658,6 +743,15 @@ class BookRenderer:
             leading=24,
             alignment=TA_CENTER,
             spaceAfter=20,
+        ))
+        self.styles.add(ParagraphStyle(
+            name="GalleryCaption",
+            parent=self.styles["Normal"],
+            fontSize=10,
+            leading=14,
+            textColor="#666666",
+            spaceBefore=12,
+            spaceAfter=4,
         ))
 
     # Regex to extract plain letter/digit from Unicode mathematical styled names
@@ -897,7 +991,7 @@ try! pngData.write(to: URL(fileURLWithPath: outPath))
         if not Image:
             return None
         if max_width is None:
-            max_width = self.PAGE_WIDTH - 2 * self.MARGIN
+            max_width = self.body_col_width
         if max_height is None:
             max_height = 4 * inch
 
@@ -918,8 +1012,15 @@ try! pngData.write(to: URL(fileURLWithPath: outPath))
             return None
 
     def _build_post_elements(self, post, index):
-        """Build flowable elements for a single post chapter."""
+        """Build flowable elements for a single post chapter.
+
+        Returns:
+            (elements, gallery_images) tuple. gallery_images is a list of
+            (image_path, post_title) tuples collected when collate_photos='end'.
+        """
         elements = []
+        gallery_images = []
+
         title_text = self._escape_xml(post.title)
         anchor = f'<a name="post_{index}"/>'
         elements.append(Paragraph(f'{anchor}{title_text}', self.styles["ChapterTitle"]))
@@ -929,7 +1030,9 @@ try! pngData.write(to: URL(fileURLWithPath: outPath))
             date_str += f" &mdash; {self._escape_xml(post.subtitle)}"
         elements.append(Paragraph(date_str, self.styles["ChapterDate"]))
 
-        # Render interleaved content blocks in order
+        # Collect deferred images for per-post collation
+        deferred_images = []
+
         for block_type, block_value in post.content:
             if block_type == "text":
                 paragraphs = re.split(r'\n\n+', block_value.strip())
@@ -939,17 +1042,116 @@ try! pngData.write(to: URL(fileURLWithPath: outPath))
                         para_text = self._escape_xml(para).replace("\n", "<br/>")
                         elements.append(Paragraph(para_text, self.styles["BodyText2"]))
             elif block_type == "image":
-                img_flowable = self._make_image_flowable(block_value)
-                if img_flowable:
-                    elements.append(Spacer(1, 0.15 * inch))
-                    elements.append(img_flowable)
-                    elements.append(Spacer(1, 0.15 * inch))
+                if self.collate_photos == "end":
+                    gallery_images.append((block_value, post.title))
+                elif self.collate_photos == "per-post":
+                    deferred_images.append(block_value)
+                else:
+                    # Inline (default)
+                    img_flowable = self._make_image_flowable(
+                        block_value, max_width=self.body_col_width)
+                    if img_flowable:
+                        elements.append(Spacer(1, 0.15 * inch))
+                        elements.append(img_flowable)
+                        elements.append(Spacer(1, 0.15 * inch))
 
+        # per-post: append tiled photo layout after text
+        if deferred_images:
+            elements.extend(self._build_photo_tile(deferred_images))
+
+        # PageBreak is added in render() loop, not here
+        return elements, gallery_images
+
+    def _build_photo_tile(self, image_paths, max_width=None):
+        """Build a tiled photo layout from a list of image paths.
+
+        - 1 image: full-width, as large as possible
+        - 2+ images: 2-column grid
+        """
+        if max_width is None:
+            max_width = self.body_col_width
+        usable_height = self.PAGE_HEIGHT - 2 * self.MARGIN
+
+        elements = []
+        # Filter to valid paths only
+        valid_paths = [p for p in image_paths if p]
+        if not valid_paths:
+            return elements
+
+        if len(valid_paths) == 1:
+            # Single image: display as large as possible
+            img = self._make_image_flowable(
+                valid_paths[0],
+                max_width=max_width,
+                max_height=usable_height - 1 * inch,
+            )
+            if img:
+                elements.append(Spacer(1, 0.15 * inch))
+                elements.append(img)
+                elements.append(Spacer(1, 0.15 * inch))
+        else:
+            # 2+ images: 2-column grid
+            gutter = 0.15 * inch
+            tile_w = (max_width - gutter) / 2
+            tile_h = 3 * inch
+
+            # Build image flowables
+            flowables = []
+            for path in valid_paths:
+                img = self._make_image_flowable(
+                    path, max_width=tile_w, max_height=tile_h)
+                flowables.append(img if img else "")
+
+            # Build rows of 2
+            rows = []
+            for i in range(0, len(flowables), 2):
+                left = flowables[i]
+                right = flowables[i + 1] if i + 1 < len(flowables) else ""
+                rows.append([left, right])
+
+            table = Table(rows, colWidths=[tile_w, tile_w],
+                          hAlign="CENTER")
+            table.setStyle(TableStyle([
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]))
+            elements.append(Spacer(1, 0.15 * inch))
+            elements.append(table)
+            elements.append(Spacer(1, 0.15 * inch))
+
+        return elements
+
+    def _build_gallery_section(self, gallery_images):
+        """Build a photo gallery section with all collected images.
+
+        Groups images by post title and uses tiled layout for each group.
+        """
+        elements = []
         elements.append(PageBreak())
+        elements.append(Paragraph("Photo Gallery", self.styles["TOCHeading"]))
+        elements.append(Spacer(1, 0.3 * inch))
+
+        # Group images by post title (preserving order)
+        from collections import OrderedDict
+        groups = OrderedDict()
+        for img_path, post_title in gallery_images:
+            groups.setdefault(post_title, []).append(img_path)
+
+        for post_title, paths in groups.items():
+            elements.append(Spacer(1, 0.2 * inch))
+            elements.append(Paragraph(
+                self._escape_xml(post_title),
+                self.styles["GalleryCaption"]))
+            elements.extend(self._build_photo_tile(paths))
+
         return elements
 
     def _add_page_number(self, canvas, doc):
-        """Page number footer callback."""
+        """Page number footer callback for PageTemplate.onPage."""
         canvas.saveState()
         canvas.setFont("Helvetica", 9)
         page_num = canvas.getPageNumber()
@@ -957,64 +1159,114 @@ try! pngData.write(to: URL(fileURLWithPath: outPath))
         canvas.drawCentredString(self.PAGE_WIDTH / 2, 0.5 * inch, text)
         canvas.restoreState()
 
+    def _make_doc(self, path):
+        """Create a document template with single and multi-column page templates.
+
+        Uses BaseDocTemplate with multiple PageTemplates:
+        - 'single': one full-width frame (title page, TOC, gallery)
+        - 'body': N column frames for post content (N = self.columns)
+
+        Content flows naturally through column frames and across pages,
+        avoiding BalancedColumns limitations with long content.
+        """
+        pagesize = (self.PAGE_WIDTH, self.PAGE_HEIGHT)
+        frame_height = self.PAGE_HEIGHT - 2 * self.MARGIN
+        full_width = self.PAGE_WIDTH - 2 * self.MARGIN
+
+        def make_frames(ncols):
+            if ncols <= 1:
+                return [Frame(
+                    self.MARGIN, self.MARGIN,
+                    full_width, frame_height,
+                    id='main',
+                    leftPadding=0, rightPadding=0,
+                    topPadding=0, bottomPadding=0,
+                )]
+            col_w = (full_width - (ncols - 1) * self._gutter) / ncols
+            return [
+                Frame(
+                    self.MARGIN + i * (col_w + self._gutter), self.MARGIN,
+                    col_w, frame_height,
+                    id=f'col{i}',
+                    leftPadding=0, rightPadding=0,
+                    topPadding=0, bottomPadding=0,
+                )
+                for i in range(ncols)
+            ]
+
+        templates = [
+            PageTemplate(id='single', frames=make_frames(1),
+                         onPage=self._add_page_number),
+            PageTemplate(id='body', frames=make_frames(self.columns),
+                         onPage=self._add_page_number),
+        ]
+
+        doc = BaseDocTemplate(path, pagesize=pagesize)
+        doc.addPageTemplates(templates)
+        return doc
+
     def render(self, posts):
         """Render posts into a PDF book.
 
         Uses a two-pass approach: first render content to determine page numbers,
         then prepend a TOC with accurate page references.
+
+        Multi-column layout uses frame-based columns (BaseDocTemplate with
+        multiple Frame objects per page) so content flows naturally across
+        columns and pages without BalancedColumns size limitations.
         """
         if not posts:
             print("No posts to render.")
             return
 
+        debug_print(f"Starting render: {len(posts)} posts")
+
         # --- Pass 1: Render content without TOC to get page counts ---
-        # Build a temporary PDF to count pages per post
         tmp_path = self.output_path + ".tmp"
-        doc = SimpleDocTemplate(
-            tmp_path,
-            pagesize=letter,
-            leftMargin=self.MARGIN,
-            rightMargin=self.MARGIN,
-            topMargin=self.MARGIN,
-            bottomMargin=self.MARGIN,
-        )
+        doc = self._make_doc(tmp_path)
 
-        # Track which page each post starts on
         page_tracker = _PageTracker()
+        all_gallery_images = []
 
-        # Title page + post content
+        # Title page (single-column); first template 'single' is used by default
         elements = self._build_title_page(posts)
-        for i, post in enumerate(posts):
-            # Insert a tracker flowable before each post
-            elements.append(page_tracker.make_marker(i))
-            elements.extend(self._build_post_elements(post, i))
 
-        doc.build(elements, onFirstPage=self._add_page_number,
-                  onLaterPages=self._add_page_number)
+        # Switch to body template for post content
+        if self.columns > 1:
+            elements.append(NextPageTemplate('body'))
+
+        for i, post in enumerate(posts):
+            elements.append(page_tracker.make_marker(i))
+            post_elems, gallery_imgs = self._build_post_elements(post, i)
+            all_gallery_images.extend(gallery_imgs)
+            elements.extend(post_elems)
+            elements.append(PageBreak())
+
+        if all_gallery_images:
+            if self.columns > 1:
+                elements.append(NextPageTemplate('single'))
+            elements.extend(self._build_gallery_section(all_gallery_images))
+
+        debug_print("Building pass 1 (page count)...")
+        doc.build(elements)
 
         post_pages = page_tracker.page_numbers
+        debug_print(f"Pass 1 complete. Post page numbers: {post_pages}")
 
         # --- Pass 2: Build final PDF with TOC ---
-        doc2 = SimpleDocTemplate(
-            self.output_path,
-            pagesize=letter,
-            leftMargin=self.MARGIN,
-            rightMargin=self.MARGIN,
-            topMargin=self.MARGIN,
-            bottomMargin=self.MARGIN,
-        )
+        doc2 = self._make_doc(self.output_path)
 
         final_elements = self._build_title_page(posts)
 
-        # TOC page(s)
+        # TOC page(s) — single-column frame, BalancedColumns for multi-col TOC
         final_elements.append(Paragraph("Table of Contents", self.styles["TOCHeading"]))
-        # We need to offset page numbers by the TOC pages themselves.
-        # Estimate TOC pages: ~40 entries per page
         toc_entry_count = len(posts)
         estimated_toc_pages = max(1, (toc_entry_count + 39) // 40)
-        # Title page = 1 page, TOC = estimated_toc_pages
-        page_offset = estimated_toc_pages  # extra pages from TOC insertion
+        page_offset = estimated_toc_pages
 
+        debug_print(f"TOC: {toc_entry_count} entries, estimated {estimated_toc_pages} TOC pages")
+
+        toc_entries = []
         for i, post in enumerate(posts):
             raw_page = post_pages.get(i, "?")
             if isinstance(raw_page, int):
@@ -1027,29 +1279,49 @@ try! pngData.write(to: URL(fileURLWithPath: outPath))
                 f'<a href="#post_{i}" color="blue">{title_escaped}</a>'
                 f' <font color="#888888">({date_short})</font>'
             )
-            # Right-aligned page number using a table
+            # Use toc column width for multi-column TOC, full width otherwise
+            toc_table_width = (self.toc_col_width if self.toc_columns > 1
+                               else self.PAGE_WIDTH - 2 * self.MARGIN)
             toc_data = [[
                 Paragraph(toc_line, self.styles["TOCEntry"]),
                 Paragraph(str(display_page), self.styles["TOCEntry"]),
             ]]
             toc_table = Table(toc_data, colWidths=[
-                self.PAGE_WIDTH - 2 * self.MARGIN - 0.6 * inch,
+                toc_table_width - 0.6 * inch,
                 0.6 * inch,
             ])
             toc_table.setStyle(TableStyle([
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ("ALIGN", (1, 0), (1, 0), "RIGHT"),
             ]))
-            final_elements.append(toc_table)
+            toc_entries.append(toc_table)
+
+        if self.toc_columns > 1:
+            final_elements.append(BalancedColumns(toc_entries, nCols=self.toc_columns))
+        else:
+            final_elements.extend(toc_entries)
 
         final_elements.append(PageBreak())
 
-        # Post content
-        for i, post in enumerate(posts):
-            final_elements.extend(self._build_post_elements(post, i))
+        # Switch to body template for post content
+        if self.columns > 1:
+            final_elements.append(NextPageTemplate('body'))
 
-        doc2.build(final_elements, onFirstPage=self._add_page_number,
-                   onLaterPages=self._add_page_number)
+        # Post content (pass 2)
+        all_gallery_images_2 = []
+        for i, post in enumerate(posts):
+            post_elems, gallery_imgs = self._build_post_elements(post, i)
+            all_gallery_images_2.extend(gallery_imgs)
+            final_elements.extend(post_elems)
+            final_elements.append(PageBreak())
+
+        if all_gallery_images_2:
+            if self.columns > 1:
+                final_elements.append(NextPageTemplate('single'))
+            final_elements.extend(self._build_gallery_section(all_gallery_images_2))
+
+        debug_print("Building pass 2 (final PDF)...")
+        doc2.build(final_elements)
 
         # Clean up temp file
         try:
@@ -1088,6 +1360,86 @@ class _PageMarkerFlowable(Flowable):
 
 
 # ---------------------------------------------------------------------------
+# Save / Load posts
+# ---------------------------------------------------------------------------
+
+def save_posts(posts, path):
+    """Save posts to a file. Format inferred from extension (.json, .yaml/.yml, .csv)."""
+    ext = os.path.splitext(path)[1].lower()
+
+    def post_to_dict(post):
+        return {
+            "title": post.title,
+            "date": post.date.isoformat(),
+            "subtitle": post.subtitle,
+            "url": post.url,
+            "content": [{"type": t, "value": v} for t, v in post.content],
+        }
+
+    if ext == ".json":
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump([post_to_dict(p) for p in posts], f, indent=2, ensure_ascii=False)
+    elif ext in (".yaml", ".yml"):
+        if yaml is None:
+            print("Error: pyyaml is required for YAML output. Install with: pip install pyyaml")
+            raise SystemExit(1)
+        with open(path, "w", encoding="utf-8") as f:
+            yaml.dump([post_to_dict(p) for p in posts], f,
+                      default_flow_style=False, allow_unicode=True)
+    elif ext == ".csv":
+        with open(path, "w", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["title", "date", "subtitle", "url", "text"])
+            for post in posts:
+                text = "\n\n".join(v for t, v in post.content if t == "text")
+                writer.writerow([
+                    post.title,
+                    post.date.isoformat(),
+                    post.subtitle or "",
+                    post.url or "",
+                    text,
+                ])
+    else:
+        print(f"Error: Unsupported file extension '{ext}'. Use .json, .yaml, .yml, or .csv.")
+        raise SystemExit(1)
+
+    print(f"Saved {len(posts)} posts to {path}")
+
+
+def load_posts_from_file(path):
+    """Load posts from a JSON or YAML file."""
+    ext = os.path.splitext(path)[1].lower()
+
+    if ext == ".json":
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    elif ext in (".yaml", ".yml"):
+        if yaml is None:
+            print("Error: pyyaml is required for YAML input. Install with: pip install pyyaml")
+            raise SystemExit(1)
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    else:
+        print(f"Error: Unsupported file extension '{ext}' for loading. Use .json, .yaml, or .yml.")
+        raise SystemExit(1)
+
+    posts = []
+    for item in data:
+        content = [(block["type"], block["value"]) for block in item.get("content", [])]
+        posts.append(Post(
+            title=item["title"],
+            date=datetime.fromisoformat(item["date"]),
+            content=content,
+            subtitle=item.get("subtitle"),
+            url=item.get("url"),
+        ))
+
+    posts.sort(key=lambda p: p.date)
+    print(f"Loaded {len(posts)} posts from {path}")
+    return posts
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -1098,8 +1450,8 @@ def parse_args():
         epilog=__doc__,
     )
     parser.add_argument(
-        "--source", required=True, choices=["substack", "facebook"],
-        help="Which platform to pull posts from.",
+        "--source", required=True, choices=["substack", "facebook", "file"],
+        help="Which platform to pull posts from, or 'file' to load from a saved file.",
     )
     parser.add_argument(
         "--substack-url",
@@ -1144,11 +1496,55 @@ def parse_args():
         "--no-images", action="store_true",
         help="Skip image embedding for faster generation.",
     )
+    # Paper size
+    parser.add_argument(
+        "--paper-size", default="letter",
+        choices=list(PAPER_SIZES.keys()),
+        help="Paper size for the PDF (default: letter).",
+    )
+    # Column layout
+    parser.add_argument(
+        "--columns", type=int, default=1, choices=[1, 2, 3],
+        help="Number of columns for post content (default: 1).",
+    )
+    parser.add_argument(
+        "--toc-columns", type=int, default=1, choices=[1, 2, 3],
+        help="Number of columns for the table of contents (default: 1).",
+    )
+    # Photo collation
+    parser.add_argument(
+        "--collate-photos", default=None, choices=["end", "per-post"],
+        help="Collate photos: 'end' gathers all into a gallery, "
+             "'per-post' places photos after text. Default: inline.",
+    )
+    # Debug
+    parser.add_argument(
+        "--debug", action="store_true",
+        help="Enable debug output.",
+    )
+    # Save/load
+    parser.add_argument(
+        "--save-posts", metavar="FILE",
+        help="Save fetched posts to a file (.json, .yaml, .csv).",
+    )
+    parser.add_argument(
+        "--input-file", metavar="PATH",
+        help="Path to a saved posts file (use with --source file).",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+
+    global DEBUG
+    DEBUG = args.debug
+
+    debug_print(f"Source: {args.source}")
+    debug_print(f"Paper size: {args.paper_size}, Columns: {args.columns}, "
+                f"TOC columns: {args.toc_columns}")
+    if args.collate_photos:
+        debug_print(f"Photo collation: {args.collate_photos}")
 
     since = None
     until = None
@@ -1159,7 +1555,13 @@ def main():
 
     download_images = not args.no_images
 
-    if args.source == "substack":
+    if args.source == "file":
+        if not args.input_file:
+            print("Error: --input-file is required when --source is 'file'.")
+            raise SystemExit(1)
+        posts = load_posts_from_file(args.input_file)
+        default_title = "Posts"
+    elif args.source == "substack":
         if not args.substack_url:
             print("Error: --substack-url is required for Substack source.")
             raise SystemExit(1)
@@ -1174,27 +1576,44 @@ def main():
             browser_cookies=browser_cj,
         )
         default_title = args.substack_url.split("//")[-1].split(".")[0].title()
+        print(f"Fetching posts from {args.source}...")
+        posts = fetcher.fetch_posts(
+            limit=args.limit,
+            since=since,
+            until=until,
+            download_images=download_images,
+        )
     elif args.source == "facebook":
         token = args.facebook_token or os.environ.get("FACEBOOK_ACCESS_TOKEN")
         fetcher = FacebookFetcher(access_token=token)
         default_title = "Facebook Memories"
+        print(f"Fetching posts from {args.source}...")
+        posts = fetcher.fetch_posts(
+            limit=args.limit,
+            since=since,
+            until=until,
+            download_images=download_images,
+        )
 
     title = args.title or default_title
-
-    print(f"Fetching posts from {args.source}...")
-    posts = fetcher.fetch_posts(
-        limit=args.limit,
-        since=since,
-        until=until,
-        download_images=download_images,
-    )
 
     if not posts:
         print("No posts found matching the criteria.")
         raise SystemExit(0)
 
+    # Save posts if requested
+    if args.save_posts:
+        save_posts(posts, args.save_posts)
+
     print(f"Rendering {len(posts)} posts to PDF...")
-    renderer = BookRenderer(title=title, output_path=args.output)
+    renderer = BookRenderer(
+        title=title,
+        output_path=args.output,
+        paper_size=args.paper_size,
+        columns=args.columns,
+        toc_columns=args.toc_columns,
+        collate_photos=args.collate_photos,
+    )
     renderer.render(posts)
 
 
