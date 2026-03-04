@@ -19,6 +19,7 @@ browser-cookie3 = "*"
 pyyaml = "*"
 flask = "*"
 urllib3 = "*"
+openpyxl = "*"
 
 [dev-packages]
 
