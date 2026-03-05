@@ -8,19 +8,19 @@ or publishes directly to Confluence.
 
 Usage:
     # Print markdown report to stdout
-    ./rds-maintenance-report.py --profile REDACTED_PROFILE
+    ./rds-maintenance-report.py --profile prod-admin
 
     # Write markdown to a file
-    ./rds-maintenance-report.py --profile REDACTED_PROFILE -o report.md
+    ./rds-maintenance-report.py --profile prod-admin -o report.md
 
     # Publish to Confluence
-    ./rds-maintenance-report.py --profile REDACTED_PROFILE --confluence --space SRE
+    ./rds-maintenance-report.py --profile prod-admin --confluence --space SRE
 
     # Check events for a specific cluster (last 14 days)
-    ./rds-maintenance-report.py --profile REDACTED_PROFILE --cluster chat-preview-service
+    ./rds-maintenance-report.py --profile prod-admin --cluster chat-preview-service
 
     # Check events with custom duration (in minutes, max 14 days = 20160)
-    ./rds-maintenance-report.py --profile REDACTED_PROFILE --cluster chat-preview-service --duration 4320
+    ./rds-maintenance-report.py --profile prod-admin --cluster chat-preview-service --duration 4320
 """
 
 import argparse
@@ -343,14 +343,29 @@ def publish_to_confluence(md_content, space_key, title=None):
         print("ERROR: 'keyring' package required for Confluence publishing. Install with: pip install keyring", file=sys.stderr)
         sys.exit(1)
 
-    email = "REDACTED_EMAIL"
-    token = keyring.get_password("REDACTED_ATLASSIAN_URL", email)
+    conf_path = os.path.expanduser("~/.atlassian-conf.json")
+    if not os.path.exists(conf_path):
+        print("ERROR: ~/.atlassian-conf.json not found. Create it with url/username fields.", file=sys.stderr)
+        sys.exit(1)
+
+    with open(conf_path) as f:
+        conf = json.load(f)
+    profile = conf.get("default", conf.get(next(iter(conf), ""), {}))
+    if isinstance(conf, dict) and "url" in conf:
+        profile = conf
+    base_url_root = profile.get("url", "").rstrip("/")
+    email = profile.get("username", "")
+    if not base_url_root or not email:
+        print("ERROR: ~/.atlassian-conf.json must contain 'url' and 'username'.", file=sys.stderr)
+        sys.exit(1)
+
+    token = keyring.get_password(base_url_root, email)
     if not token:
-        print("ERROR: No Atlassian API token found in keychain.", file=sys.stderr)
+        print(f"ERROR: No Atlassian API token found in keychain for {email} at {base_url_root}.", file=sys.stderr)
         sys.exit(1)
 
     auth = base64.b64encode(f"{email}:{token}".encode()).decode()
-    base_url = "REDACTED_ATLASSIAN_URL/wiki"
+    base_url = f"{base_url_root}/wiki"
 
     # Look up space ID
     import urllib.request
