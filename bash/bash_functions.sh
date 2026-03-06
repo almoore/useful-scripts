@@ -237,7 +237,8 @@ activate-vpn-cert () {
     export AWS_CA_BUNDLE=${HOME}/anthem/wellpoint-certifi-ca-bundle.pem;
     export PIP_CERT=${HOME}/anthem/wellpoint-certifi-ca-bundle.pem
     export REQUESTS_CA_BUNDLE=${HOME}/anthem/wellpoint-certifi-ca-bundle.pem
-    export NODE_TLS_REJECT_UNAUTHORIZED=0
+    # export NODE_TLS_REJECT_UNAUTHORIZED=0
+    export NODE_EXTRA_CA_CERTS=$SSL_CERT_FILE
 }
 
 deactivate-vpn-cert() {
