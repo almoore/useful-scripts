@@ -34,7 +34,7 @@ def callback():
         response = requests.post(token_url, data=data)
         if response.status_code == 200:
             access_token = response.json().get("access_token")
-            return f"ACCESS_TOKEN={access_token}"
+            return f'WORDPRESS_ACCESS_TOKEN="{access_token}"'
         else:
             return (
                 f"Failed to obtain access token: {response.status_code} {response.text}"
