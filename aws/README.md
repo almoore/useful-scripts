@@ -27,7 +27,3 @@ aws-download-roles    -> aws/download-roles.sh
 - AWS CLI configured with appropriate profiles
 - Python 3 with `boto3` for Python scripts
 - `rds-maintenance-report.py` additionally requires `atlassian-python-api` and `keyring`
-
-## Note on bash/aws/
-
-The `bash/aws/` directory contains older copies of `download-policies.sh` and `download-roles.sh`. The versions in this directory (`aws/`) are the current ones and are what the `~/bin` symlinks point to.

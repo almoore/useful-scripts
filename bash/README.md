@@ -7,8 +7,8 @@ General-purpose bash scripts covering git, Docker, AWS, system diagnostics, and 
 Two library scripts are symlinked into `~/` as dotfiles and sourced by `~/.bashrc`:
 
 ```
-~/.bash_functions -> bash/bash_functions.sh   (PATH deduplication, pyenv management)
-~/.bash_tricks    -> bash/bash-tricks.sh      (aliases and shell shortcuts)
+~/.bash_functions -> bash/lib/bash_functions.sh   (PATH deduplication, pyenv management)
+~/.bash_tricks    -> bash/lib/bash-tricks.sh      (aliases and shell shortcuts)
 ```
 
 ## ~/bin Symlinks
@@ -112,29 +112,29 @@ x509-check            -> bash/x509-check
 | `run_cmake` | CMake build runner |
 | `trap_test.sh` | Example signal trapping (SIGINT/SIGTERM handling) |
 | `ubuntu_package_check` | Check Ubuntu package availability |
-| `bash-tricks.sh` | Useful bash aliases and shell shortcuts |
 
-## Library Scripts (source, don't execute)
+## Library Scripts — `lib/` (source, don't execute)
 
-These are meant to be sourced by other scripts, not run directly:
+These live in `bash/lib/` and are meant to be sourced by other scripts, not run directly:
 
 | Script | Description |
 |--------|-------------|
-| `bash_functions.sh` | Utility functions: PATH deduplication, pyenv management |
-| `check-command-exists.sh` | Check if a command exists in PATH |
-| `colors-print-functions.sh` | ANSI color variables and terminal color detection |
-| `colors-print.sh` | Terminal color utilities with associative arrays |
-| `detect-being-sourced.sh` | Detect whether a script is being sourced or executed |
-| `docker-mock-functions.sh` | Mock Docker run function for testing |
-| `get_script_dir.sh` | Get absolute path of the script's directory |
-| `logging.sh` | Color-coded logging with formatting functions |
-| `metadata.sh` | Image metadata display using exiftool |
+| `lib/bash_functions.sh` | Utility functions: PATH deduplication, pyenv management |
+| `lib/bash-tricks.sh` | Useful bash aliases and shell shortcuts |
+| `lib/check-command-exists.sh` | Check if a command exists in PATH |
+| `lib/colors-print-functions.sh` | ANSI color variables and terminal color detection |
+| `lib/colors-print.sh` | Terminal color utilities with associative arrays |
+| `lib/detect-being-sourced.sh` | Detect whether a script is being sourced or executed |
+| `lib/docker-mock-functions.sh` | Mock Docker run function for testing |
+| `lib/get_script_dir.sh` | Get absolute path of the script's directory |
+| `lib/logging.sh` | Color-coded logging with formatting functions |
+| `lib/metadata.sh` | Image metadata display using exiftool |
 
 ## Subdirectories
 
 | Directory | Contents |
 |-----------|----------|
+| `lib/` | Shell libraries meant to be sourced (see table above) |
 | `automation/` | Build automation (`cmake_clone_build.sh`), MySQL load testing (`mysql_slap/`) |
-| `aws/` | Older copies of `download-policies.sh` and `download-roles.sh` (see `aws/` at repo root for current versions) |
 | `display/` | Display configuration (`vga_add`) |
 | `packaging/` | iOS app re-signing (`ios_resign.sh`), Redis packaging (`redis_make_package.sh`) |

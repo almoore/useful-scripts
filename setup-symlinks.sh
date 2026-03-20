@@ -56,8 +56,8 @@ usage() {
 generate_manifest() {
   cat <<'MANIFEST'
 # Shell dotfiles (sourced by ~/.bashrc)
-bash/bash_functions.sh  ~/  .bash_functions
-bash/bash-tricks.sh     ~/  .bash_tricks
+bash/lib/bash_functions.sh  ~/  .bash_functions
+bash/lib/bash-tricks.sh     ~/  .bash_tricks
 
 # AWS
 bash/aws-docker-login       bin/  aws-docker-login

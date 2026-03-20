@@ -59,8 +59,8 @@ These files are symlinked into `~/` and sourced by `~/.bashrc`:
 
 | Dotfile | Script | Description |
 |---------|--------|-------------|
-| `~/.bash_functions` | [bash/bash_functions.sh](bash/bash_functions.sh) | Utility functions: PATH deduplication, pyenv management |
-| `~/.bash_tricks` | [bash/bash-tricks.sh](bash/bash-tricks.sh) | Useful bash aliases and shell shortcuts |
+| `~/.bash_functions` | [bash/lib/bash_functions.sh](bash/lib/bash_functions.sh) | Utility functions: PATH deduplication, pyenv management |
+| `~/.bash_tricks` | [bash/lib/bash-tricks.sh](bash/lib/bash-tricks.sh) | Useful bash aliases and shell shortcuts |
 
 ```bash
 # In ~/.bashrc:
