@@ -1,4 +1,8 @@
 #!/bin/sh
+# Execute an interactive shell inside a Kubernetes node using nsenter
+# Usage: k8s-nsenter NODE [kubectl args...]
+#   Example: k8s-nsenter ip-10-0-1-42.ec2.internal --context prod-eks
+[ "$1" = "-h" ] || [ "$1" = "--help" ] && { sed -n '2,4s/^# //p' "$0"; exit 0; }
 
 set -x
 node=${1}

@@ -1,4 +1,8 @@
 #!/bin/bash
+# Check TLS certificate expiration dates for all Kubernetes secrets
+# Usage: k8s-check-certs [kubectl args...]
+#   Example: k8s-check-certs --context prod-eks
+[ "$1" = "-h" ] || [ "$1" = "--help" ] && { sed -n '2,4s/^# //p' "$0"; exit 0; }
 ARGS="$@"
 
 GC="\033[1;32m"

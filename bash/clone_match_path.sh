@@ -1,4 +1,6 @@
-#!/usr/bin/env bash
+#!/bin/bash
+# NOTE: Requires GNU sed (gsed on macOS: brew install gnu-sed)
+
 usage() {
     echo "clone_match_path REPO [GIT-OPTIONS]"
 }
@@ -14,14 +16,9 @@ trap trap_caught SIGQUIT
 trap trap_caught SIGTERM
 trap trap_caught INT
 
-# Grab repo name
-REPO=${1}
-shift
-# Create path
-REPO_PATH=$(dirname ${REPO#*://})
-REPO_NAME=$(basename -s .git $REPO)
-FULL_PATH=/repos/$REPO_PATH/$REPO_NAME
-mkdir -p $FULL_PATH
-# Clone repo
-git clone $REPO $FULL_PATH "$@"
 
+URL=$1
+RP=$(echo $URL | sed -e 's#^.*://##' -e 's#.git$##' | sed -e 's#^.*@##' -e 's#:[0-9]*/#/#' | sed 's#:#/#')
+CP=~/repos/$RP
+
+git clone $URL $CP

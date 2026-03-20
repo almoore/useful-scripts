@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Execute a command in each subdirectory of the current directory
+# Usage: for_each_dir COMMAND [ARGS...]
+#   Set DIRS env var to override the list of directories
 #set -e
 #set -x
 

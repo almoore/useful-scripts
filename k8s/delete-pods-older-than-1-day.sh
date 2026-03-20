@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Delete pods created more than 1 day ago
+# Usage: k8s-delete-pods-older-than-1-day [kubectl args...]
+#   Example: k8s-delete-pods-older-than-1-day -n staging
+[ "$1" = "-h" ] || [ "$1" = "--help" ] && { sed -n '2,4s/^# //p' "$0"; exit 0; }
 
 set -x
 date=$(type -p gdate || type -p date)

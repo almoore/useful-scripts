@@ -15,6 +15,7 @@ A collection of standalone utility scripts for DevOps workflows covering AWS, GC
 | [api-scripts/](api-scripts/) | 39 | Legacy API integrations — Stash, Salt, Jenkins, Bamboo |
 | [expect/](expect/) | 2 | Expect-based SSH and MySQL automation |
 | [images/](images/) | 3 | ImageMagick image processing — watermarks, effects |
+| [archive/](archive/) | 1 | Legacy/outdated scripts kept for reference |
 
 ## Installation
 
@@ -76,7 +77,7 @@ These scripts are symlinked from `~/bin` for direct command-line use. The symlin
 
 | Command | Script |
 |---------|--------|
-| `aws-docker-login` | [bash/aws-docker-login](bash/aws-docker-login) |
+| `aws-docker-login` | [bash/aws-docker-login.sh](bash/aws-docker-login.sh) |
 | `aws-download-policies` | [aws/download-policies.sh](aws/download-policies.sh) |
 | `aws-download-roles` | [aws/download-roles.sh](aws/download-roles.sh) |
 | `aws-ssm-find` | [bash/aws-ssm-find.sh](bash/aws-ssm-find.sh) |
@@ -93,11 +94,11 @@ These scripts are symlinked from `~/bin` for direct command-line use. The symlin
 
 | Command | Script |
 |---------|--------|
-| `k8s-check-certs` | [k8s/check-certs](k8s/check-certs) |
+| `k8s-check-certs` | [k8s/check-certs.sh](k8s/check-certs.sh) |
 | `k8s-decode-certs` | [k8s/decode-certs.sh](k8s/decode-certs.sh) |
 | `k8s-decode-secrets` | [k8s/decode-secret.py](k8s/decode-secret.py) |
 | `k8s-delete-failed-pods` | [k8s/delete-failed-pods.sh](k8s/delete-failed-pods.sh) |
-| `k8s-delete-pods-older-than-1-day` | [k8s/delete-pods-older-than-1-day](k8s/delete-pods-older-than-1-day) |
+| `k8s-delete-pods-older-than-1-day` | [k8s/delete-pods-older-than-1-day.sh](k8s/delete-pods-older-than-1-day.sh) |
 | `k8s-filter` | [k8s/k8s_filter.py](k8s/k8s_filter.py) |
 | `k8s-filter-all-files` | [k8s/filter-all-files.sh](k8s/filter-all-files.sh) |
 | `k8s-get-agents-yaml-ha` | [k8s/get_agents_yaml_ha.sh](k8s/get_agents_yaml_ha.sh) |
@@ -112,7 +113,7 @@ These scripts are symlinked from `~/bin` for direct command-line use. The symlin
 | `k8s-kill-kube-ns` | [k8s/kill-kube-ns.sh](k8s/kill-kube-ns.sh) |
 | `k8s-list-containers-go-template` | [k8s/list-containers-go-template.sh](k8s/list-containers-go-template.sh) |
 | `k8s-list-statefulset-state-go-template` | [k8s/list-statefulset-state-go-template.sh](k8s/list-statefulset-state-go-template.sh) |
-| `k8s-nsenter` | [k8s/nsenter](k8s/nsenter) |
+| `k8s-nsenter` | [k8s/nsenter.sh](k8s/nsenter.sh) |
 | `k8s-setup-aws-kubeconfig` | [k8s/setup-aws-kubeconfig.sh](k8s/setup-aws-kubeconfig.sh) |
 | `k8s-split-resources` | [k8s/split-resources.py](k8s/split-resources.py) |
 
@@ -134,12 +135,12 @@ These scripts are symlinked from `~/bin` for direct command-line use. The symlin
 
 | Command | Script |
 |---------|--------|
-| `clone_match_path` | [bash/clone_match_path](bash/clone_match_path) |
-| `dockerfile-from-image` | [bash/dockerfile-from-image](bash/dockerfile-from-image) |
+| `clone_match_path` | [bash/clone_match_path.sh](bash/clone_match_path.sh) |
+| `dockerfile-from-image` | [bash/dockerfile-from-image.sh](bash/dockerfile-from-image.sh) |
 | `for_each_dir` | [bash/for_each_dir.sh](bash/for_each_dir.sh) |
-| `x509-check` | [bash/x509-check](bash/x509-check) |
-| `add_kustomization_to_current` | [k8s/add_kustomization_to_current](k8s/add_kustomization_to_current) |
-| `add_kustomization_to_subdirs` | [k8s/add_kustomization_to_subdirs](k8s/add_kustomization_to_subdirs) |
+| `x509-check` | [bash/x509-check.sh](bash/x509-check.sh) |
+| `add_kustomization_to_current` | [k8s/add_kustomization_to_current.sh](k8s/add_kustomization_to_current.sh) |
+| `add_kustomization_to_subdirs` | [k8s/add_kustomization_to_subdirs.sh](k8s/add_kustomization_to_subdirs.sh) |
 
 ## Conventions
 

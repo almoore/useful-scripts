@@ -60,7 +60,7 @@ bash/lib/bash_functions.sh  ~/  .bash_functions
 bash/lib/bash-tricks.sh     ~/  .bash_tricks
 
 # AWS
-bash/aws-docker-login       bin/  aws-docker-login
+bash/aws-docker-login.sh    bin/  aws-docker-login
 aws/download-policies.sh    bin/  aws-download-policies
 aws/download-roles.sh       bin/  aws-download-roles
 bash/aws-ssm-find.sh        bin/  aws-ssm-find
@@ -71,11 +71,11 @@ bash/git-bump.sh            bin/  git-bump
 python/git_jira_branch.py   bin/  git-jira-branch
 
 # Kubernetes
-k8s/check-certs                          bin/  k8s-check-certs
+k8s/check-certs.sh                       bin/  k8s-check-certs
 k8s/decode-certs.sh                      bin/  k8s-decode-certs
 k8s/decode-secret.py                     bin/  k8s-decode-secrets
 k8s/delete-failed-pods.sh                bin/  k8s-delete-failed-pods
-k8s/delete-pods-older-than-1-day         bin/  k8s-delete-pods-older-than-1-day
+k8s/delete-pods-older-than-1-day.sh      bin/  k8s-delete-pods-older-than-1-day
 k8s/k8s_filter.py                        bin/  k8s-filter
 k8s/filter-all-files.sh                  bin/  k8s-filter-all-files
 k8s/get_agents_yaml_ha.sh               bin/  k8s-get-agents-yaml-ha
@@ -90,11 +90,11 @@ k8s/get-taints.sh                        bin/  k8s-get-taints
 k8s/kill-kube-ns.sh                      bin/  k8s-kill-kube-ns
 k8s/list-containers-go-template.sh       bin/  k8s-list-containers-go-template
 k8s/list-statefulset-state-go-template.sh  bin/  k8s-list-statefulset-state-go-template
-k8s/nsenter                              bin/  k8s-nsenter
+k8s/nsenter.sh                           bin/  k8s-nsenter
 k8s/setup-aws-kubeconfig.sh              bin/  k8s-setup-aws-kubeconfig
 k8s/split-resources.py                   bin/  k8s-split-resources
-k8s/add_kustomization_to_current         bin/  add_kustomization_to_current
-k8s/add_kustomization_to_subdirs         bin/  add_kustomization_to_subdirs
+k8s/add_kustomization_to_current.sh      bin/  add_kustomization_to_current
+k8s/add_kustomization_to_subdirs.sh      bin/  add_kustomization_to_subdirs
 
 # Helm
 helm/hrs-values.py          bin/  hrs-values.py
@@ -105,10 +105,10 @@ python/bs-pass.py           bin/  bs-pass
 python/export_dotenv.py     bin/  export-dotenv
 
 # Other
-bash/clone_match_path       bin/  clone_match_path
-bash/dockerfile-from-image  bin/  dockerfile-from-image
+bash/clone_match_path.sh       bin/  clone_match_path
+bash/dockerfile-from-image.sh  bin/  dockerfile-from-image
 bash/for_each_dir.sh        bin/  for_each_dir
-bash/x509-check             bin/  x509-check
+bash/x509-check.sh          bin/  x509-check
 MANIFEST
 }
 

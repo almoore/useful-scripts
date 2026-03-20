@@ -6,8 +6,8 @@ ImageMagick-based scripts for image effects and watermarking.
 
 | Script | Description |
 |--------|-------------|
-| `draganeffect` | Apply Dragan-style portrait effects (brightness, contrast, saturation adjustments) |
-| `texteffect` | Apply text effects to images with style options (shadow, bevel, 3D) |
+| `draganeffect.sh` | Apply Dragan-style portrait effects (brightness, contrast, saturation adjustments) |
+| `texteffect.sh` | Apply text effects to images with style options (shadow, bevel, 3D) |
 | `watermark_text.sh` | Add rotated text watermark to images |
 
 ## Prerequisites

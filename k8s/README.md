@@ -7,11 +7,11 @@ Scripts for Kubernetes cluster management — secret decoding, event filtering, 
 The largest set of symlinks — most scripts are available as `k8s-*` commands:
 
 ```
-k8s-check-certs                        -> k8s/check-certs
+k8s-check-certs                        -> k8s/check-certs.sh
 k8s-decode-certs                       -> k8s/decode-certs.sh
 k8s-decode-secrets                     -> k8s/decode-secret.py
 k8s-delete-failed-pods                 -> k8s/delete-failed-pods.sh
-k8s-delete-pods-older-than-1-day       -> k8s/delete-pods-older-than-1-day
+k8s-delete-pods-older-than-1-day       -> k8s/delete-pods-older-than-1-day.sh
 k8s-filter                             -> k8s/k8s_filter.py
 k8s-filter-all-files                   -> k8s/filter-all-files.sh
 k8s-get-agents-yaml-ha                 -> k8s/get_agents_yaml_ha.sh
@@ -26,11 +26,11 @@ k8s-get-taints                         -> k8s/get-taints.sh
 k8s-kill-kube-ns                       -> k8s/kill-kube-ns.sh
 k8s-list-containers-go-template        -> k8s/list-containers-go-template.sh
 k8s-list-statefulset-state-go-template -> k8s/list-statefulset-state-go-template.sh
-k8s-nsenter                            -> k8s/nsenter
+k8s-nsenter                            -> k8s/nsenter.sh
 k8s-setup-aws-kubeconfig               -> k8s/setup-aws-kubeconfig.sh
 k8s-split-resources                    -> k8s/split-resources.py
-add_kustomization_to_current           -> k8s/add_kustomization_to_current
-add_kustomization_to_subdirs           -> k8s/add_kustomization_to_subdirs
+add_kustomization_to_current           -> k8s/add_kustomization_to_current.sh
+add_kustomization_to_subdirs           -> k8s/add_kustomization_to_subdirs.sh
 ```
 
 ## Scripts
@@ -41,7 +41,7 @@ add_kustomization_to_subdirs           -> k8s/add_kustomization_to_subdirs
 |--------|-------------|
 | `decode-secret.py` | Decode base64-encoded Kubernetes secret values to readable output |
 | `decode-certs.sh` | Decode and display certificate details from Kubernetes secrets |
-| `check-certs` | Verify certificate expiration dates |
+| `check-certs.sh` | Verify certificate expiration dates |
 | `extract-helm-secret.py` | Extract and decompress Helm release data from Kubernetes secrets |
 
 ### Pod Management
@@ -53,8 +53,8 @@ add_kustomization_to_subdirs           -> k8s/add_kustomization_to_subdirs
 | `get-release-pods.sh` | List all pods for a Helm release by release name |
 | `get-pod-by-node.sh` | List pods with their node assignments |
 | `delete-failed-pods.sh` | Delete pods in Failed status |
-| `delete-pods-older-than-1-day` | Delete pods older than 1 day |
-| `nsenter` | Enter the namespace of a running container for debugging |
+| `delete-pods-older-than-1-day.sh` | Delete pods older than 1 day |
+| `nsenter.sh` | Enter the namespace of a running container for debugging |
 
 ### Events & Monitoring
 
@@ -96,8 +96,8 @@ add_kustomization_to_subdirs           -> k8s/add_kustomization_to_subdirs
 | Script | Description |
 |--------|-------------|
 | `setup-aws-kubeconfig.sh` | Configure kubeconfig for AWS EKS cluster access |
-| `add_kustomization_to_current` | Add `kustomization.yaml` to current directory |
-| `add_kustomization_to_subdirs` | Add `kustomization.yaml` to all subdirectories |
+| `add_kustomization_to_current.sh` | Add `kustomization.yaml` to current directory |
+| `add_kustomization_to_subdirs.sh` | Add `kustomization.yaml` to all subdirectories |
 | `kill-kube-ns.sh` | Forcefully terminate all resources in a Kubernetes namespace |
 
 ### Helm Integration

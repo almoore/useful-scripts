@@ -14,14 +14,14 @@ Two library scripts are symlinked into `~/` as dotfiles and sourced by `~/.bashr
 ## ~/bin Symlinks
 
 ```
-aws-docker-login      -> bash/aws-docker-login
+aws-docker-login      -> bash/aws-docker-login.sh
 aws-ssm-find          -> bash/aws-ssm-find.sh
-clone_match_path      -> bash/clone_match_path
-dockerfile-from-image -> bash/dockerfile-from-image
+clone_match_path      -> bash/clone_match_path.sh
+dockerfile-from-image -> bash/dockerfile-from-image.sh
 for_each_dir          -> bash/for_each_dir.sh
 git-base              -> bash/git-base.sh
 git-bump              -> bash/git-bump.sh
-x509-check            -> bash/x509-check
+x509-check            -> bash/x509-check.sh
 ```
 
 ## Scripts
@@ -31,7 +31,7 @@ x509-check            -> bash/x509-check
 | Script | Description |
 |--------|-------------|
 | `aws-create-key-pair.sh` | Create AWS EC2 key pairs with color-coded output |
-| `aws-docker-login` | Authenticate Docker to AWS ECR registry |
+| `aws-docker-login.sh` | Authenticate Docker to AWS ECR registry |
 | `aws-secretmanager-find.sh` | Search Secrets Manager for secrets by name/path with region/profile filtering |
 | `aws-ssm-find.sh` | Search SSM Parameter Store for parameters by name/path |
 
@@ -42,8 +42,7 @@ x509-check            -> bash/x509-check
 | `git-base.sh` | Print the root directory of a git repository |
 | `git-bump.sh` | Increment semantic version tags and create new git tags |
 | `git-change-author.sh` | Rewrite git history to change author email/username |
-| `clone_match_path` | Clone a git repo into a directory structure matching its URL path |
-| `clone_match_path.sh` | Same as above with additional error handling (`.sh` version) |
+| `clone_match_path.sh` | Clone a git repo into a directory structure matching its URL path |
 
 ### Docker
 
@@ -51,7 +50,7 @@ x509-check            -> bash/x509-check
 |--------|-------------|
 | `docker-clean-node.sh` | Clean up exited containers and dangling images with configurable expiration |
 | `docker-remove-all-images.sh` | Remove all exited containers and unused Docker images |
-| `dockerfile-from-image` | Reconstruct a Dockerfile from an existing Docker image |
+| `dockerfile-from-image.sh` | Reconstruct a Dockerfile from an existing Docker image |
 | `save-images.sh` | Save Docker images to tar files from a list |
 | `save-load-docker-images.sh` | Selectively save/load Docker images with compression support |
 
@@ -82,8 +81,8 @@ x509-check            -> bash/x509-check
 
 | Script | Description |
 |--------|-------------|
-| `x509-check` | Check certificate details and expiration for a host |
-| `x509-check-all` | Check certificates for multiple hosts |
+| `x509-check.sh` | Check certificate details and expiration for a host |
+| `x509-check-all.sh` | Check certificates for multiple hosts |
 
 ### Build / Package
 
@@ -100,18 +99,18 @@ x509-check            -> bash/x509-check
 | Script | Description |
 |--------|-------------|
 | `bamboo-agent-sys5.sh` | SystemV init wrapper for Bamboo CI agent |
-| `download-site` | Download a website for offline viewing |
-| `get-matching-nodes` | Get matching nodes from a cluster |
-| `import_all_terraform` | Import all Terraform resources |
+| `download-site.sh` | Download a website for offline viewing |
+| `get-matching-nodes.sh` | Get matching nodes from a cluster |
+| `import_all_terraform.sh` | Import all Terraform resources |
 | `install_salt_builder.sh` | Install SaltStack minion configured for builder role |
 | `locktables.sh` | MySQL table locking wrapper for backup snapshots |
-| `mfa-example` | AWS MFA authentication example |
+| `mfa-example.sh` | AWS MFA authentication example |
 | `qt_conf.sh` | Qt5 environment configuration for cross-compilation |
 | `qt_conf_meta.sh` | Qt5.3.2 static build configuration |
-| `rsync-incremental-backup-local` | Incremental local backups using rsync |
-| `run_cmake` | CMake build runner |
+| `rsync-incremental-backup-local.sh` | Incremental local backups using rsync |
+| `run_cmake.sh` | CMake build runner |
 | `trap_test.sh` | Example signal trapping (SIGINT/SIGTERM handling) |
-| `ubuntu_package_check` | Check Ubuntu package availability |
+| `ubuntu_package_check.sh` | Check Ubuntu package availability |
 
 ## Library Scripts — `lib/` (source, don't execute)
 
