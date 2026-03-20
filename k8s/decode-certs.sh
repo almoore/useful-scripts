@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 
 CERTSECRETS=$(grep -r kubernetes.io/tls -l )
 for s_cert in $CERTSECRETS; do

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import argparse
 from googleapiclient import discovery
 from google.auth import default

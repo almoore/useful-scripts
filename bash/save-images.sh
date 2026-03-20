@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 get-image-id-from-name() {
   docker images $1 --format '{{.ID}}'
 }

@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 
 if [ -e /etc/redhat-release ]
 then

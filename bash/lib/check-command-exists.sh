@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 #---  FUNCTION  -------------------------------------------------------------------------------------------------------
 #          NAME:  __check_command_exists
 #   DESCRIPTION:  Check if a command exists.
