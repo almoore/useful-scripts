@@ -160,9 +160,10 @@ def parse_target(target: str) -> dict:
         result["run_id"] = target
         return result
 
-    # TFC URL
+    # TFC URL — handles both /app/{org}/workspaces/{ws}/runs/{id}
+    # and the short form /app/{org}/{ws}/runs/{id}
     url_m = re.match(
-        r'https?://([^/]+)/app/([^/]+)/workspaces/([^/]+)(?:/runs/(run-[A-Za-z0-9]+))?',
+        r'https?://([^/]+)/app/([^/]+)/(?:workspaces/)?([^/]+)(?:/runs/(run-[A-Za-z0-9]+))?',
         target,
     )
     if url_m:
