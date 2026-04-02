@@ -24,10 +24,10 @@ def run_gh(args: list[str]) -> str:
     try:
         result = subprocess.run(
             ["gh"] + args,
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, timeout=120,
         )
     except subprocess.TimeoutExpired:
-        print(f"Error: gh {' '.join(args[:3])}... timed out after 30s", file=sys.stderr)
+        print(f"Error: gh {' '.join(args[:3])}... timed out after 120s", file=sys.stderr)
         sys.exit(1)
     if result.returncode != 0:
         print(f"Error running gh {' '.join(args)}:", file=sys.stderr)
@@ -57,12 +57,25 @@ def get_pr_details(pr_number: int, repo: str) -> dict:
 
 
 def get_pr_comments(pr_number: int, repo: str) -> list[dict]:
-    """Fetch all issue comments on a PR as separate objects."""
+    """Fetch all issue comments on a PR (paginated)."""
     out = run_gh([
         "api", f"repos/{repo}/issues/{pr_number}/comments",
-        "--jq", "[.[] | {body: .body}]",
+        "--paginate",
+        "--jq", ".[] | {body: .body}",
     ])
-    return json.loads(out) if out else []
+    if not out:
+        return []
+    # --paginate with per-element jq emits one JSON object per line
+    results = []
+    for line in out.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            results.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return results
 
 
 def find_atlantis_comments(comments: list[dict]) -> list[str]:
@@ -192,10 +205,10 @@ def parse_plan(comment: str) -> dict:
             ):
                 details.append(f"{attr_m.group(1)} = {attr_m.group(2).strip()}")
 
-        # For updated resources, extract changed attributes (! lines)
+        # For updated resources, extract changed attributes (~ or ! lines)
         if "will be updated" in section:
             for attr_m in re.finditer(
-                r'!\s+(\w+)\s+=\s+(.+)',
+                r'[~!]\s+(\w+)\s+=\s+(.+)',
                 section,
             ):
                 attr_name = attr_m.group(1).strip()
@@ -212,6 +225,31 @@ def parse_plan(comment: str) -> dict:
             result["warnings"].append(w)
 
     return result
+
+
+def parse_multi_project_plan(comment: str) -> list[dict]:
+    """Split a multi-project Atlantis comment into per-project plans.
+
+    Multi-project comments have sections like:
+    ### N. project: `name` dir: `path` workspace: `default`
+    Each section runs until the next ### or end of string.
+    """
+    # Split on project headers (### N. project: ...)
+    sections = re.split(r'(?=###\s+\d+\.\s+project:)', comment)
+
+    plans = []
+    for section in sections:
+        if not re.match(r'###\s+\d+\.\s+project:', section):
+            continue
+        plan = parse_plan(section)
+        if plan["project"]:
+            plans.append(plan)
+
+    # If no project sections found, treat as single-project
+    if not plans:
+        plans = [parse_plan(comment)]
+
+    return plans
 
 
 def print_review(pr: dict, plans: list[dict]):
@@ -382,7 +420,7 @@ def main():
 
     # Use last comment (most recent plan)
     latest = atlantis_comments[-1]
-    plans = [parse_plan(latest)]
+    plans = parse_multi_project_plan(latest)
 
     if args.json_output:
         # Strip raw field for cleaner output
