@@ -207,9 +207,9 @@ _demo_log_colors() {
 # Make python history work in virualenvs
 python () {
     if [ "$#" -eq 0 ]; then
-        PYTHONSTARTUP=~/.pythonrc $(type -P python)
+        PYTHONSTARTUP=~/.pythonrc $(type -P python3)
     else
-        $(type -P python) "$@"
+        $(type -P python3) "$@"
     fi
 }
 
