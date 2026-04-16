@@ -1,6 +1,10 @@
 #!/bin/bash
 # Convert Markdown to styled PDF using ReportLab
 # Usage: md2pdf INPUT.md [-o OUTPUT.pdf]
-SCRIPT_DIR=$(cd $(dirname $(realpath ${BASH_SOURCE[0]})); echo $PWD)
+SOURCE="${BASH_SOURCE[0]}"
+while [[ -L "$SOURCE" ]]; do
+  SOURCE="$(cd -P "$(dirname "$SOURCE")" && pwd)/$(readlink "$SOURCE")"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 export PIPENV_PIPFILE="${SCRIPT_DIR}/../Pipfile"
-exec pipenv run python "$HOME/repos/github.com/almoore/useful-scripts/python/md_to_pdf.py" "$@"
+exec pipenv run python "${SCRIPT_DIR}/../python/md_to_pdf.py" "$@"
