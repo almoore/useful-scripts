@@ -109,6 +109,7 @@ bash/clone_match_path.sh       bin/  clone_match_path
 bash/dockerfile-from-image.sh  bin/  dockerfile-from-image
 bash/for_each_dir.sh        bin/  for_each_dir
 bash/x509-check.sh          bin/  x509-check
+bash/md2pdf.sh          bin/  md2pdf
 MANIFEST
 }
 
