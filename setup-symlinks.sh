@@ -110,6 +110,7 @@ bash/dockerfile-from-image.sh  bin/  dockerfile-from-image
 bash/for_each_dir.sh        bin/  for_each_dir
 bash/x509-check.sh          bin/  x509-check
 bash/md2pdf.sh          bin/  md2pdf
+bash/md2confluence.sh   bin/  md2confluence
 MANIFEST
 }
 
