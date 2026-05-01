@@ -19,5 +19,4 @@ list: ## List existing symlinks pointing to this repo
 python-deps: ## Install Python dependencies
 	pipenv install
 	@echo ""
-	@echo "Note: Jira scripts also need: pip install jira atlassian-python-api keyring"
 	@echo "Note: api-scripts also need: pip install -r api-scripts/requirements.txt"

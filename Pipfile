@@ -20,6 +20,9 @@ pyyaml = "*"
 flask = "*"
 urllib3 = "*"
 openpyxl = "*"
+jira = "*"
+atlassian-python-api = "*"
+keyring = "*"
 
 [dev-packages]
 
