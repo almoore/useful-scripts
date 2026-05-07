@@ -7,10 +7,10 @@ flags destroys or errors, and prints a concise summary.
 Credentials are read from ~/.terraform.d/credentials.tfrc.json or ~/.terraformrc.
 
 Usage:
-    tfc-review.py run-KVUv2g2NFuLePErU
-    tfc-review.py MyOrg/my-workspace
-    tfc-review.py https://app.terraform.io/app/MyOrg/workspaces/my-workspace/runs/run-ABC123
-    tfc-review.py                          # interactive: prompt for org/workspace
+    tfe-review.py run-KVUv2g2NFuLePErU
+    tfe-review.py MyOrg/my-workspace
+    tfe-review.py https://app.terraform.io/app/MyOrg/workspaces/my-workspace/runs/run-ABC123
+    tfe-review.py                          # interactive: prompt for org/workspace
 """
 
 import argparse
