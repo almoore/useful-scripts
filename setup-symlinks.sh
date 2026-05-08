@@ -68,12 +68,18 @@ bash/aws-ssm-find.sh        bin/  aws-ssm-find
 # Git
 bash/git-base.sh            bin/  git-base
 bash/git-bump.sh            bin/  git-bump
-python/git_jira_branch.py   bin/  git-jira-branch
+bash/git-jira-branch.sh     bin/  git-jira-branch
+
+# Jira / Confluence (pipenv wrappers)
+bash/jira-tools.sh              bin/  jira-tools
+bash/jira-reassign-children.sh  bin/  jira-reassign-children
+bash/jira-users-list.sh         bin/  jira-users-list
 
 # Kubernetes
 k8s/check-certs.sh                       bin/  k8s-check-certs
 k8s/decode-certs.sh                      bin/  k8s-decode-certs
 k8s/decode-secret.py                     bin/  k8s-decode-secrets
+k8s/decode-tls-secret.py                 bin/  k8s-decode-tls-secret
 k8s/delete-failed-pods.sh                bin/  k8s-delete-failed-pods
 k8s/delete-pods-older-than-1-day.sh      bin/  k8s-delete-pods-older-than-1-day
 k8s/k8s_filter.py                        bin/  k8s-filter

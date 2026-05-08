@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+"""Walk a directory of multi-document YAML files and re-emit each document as
+its own file named by kind/name, so a bulk dump can be diffed and edited
+piece by piece."""
 import os
 import sys
 import yaml

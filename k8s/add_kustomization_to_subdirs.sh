@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Generate a kustomization.yaml inside each immediate subdirectory listing its
+# files as resources. Despite the .sh extension this is a Python script.
 import os, yaml
 
 k_template = '''

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# For every namespace stuck in Terminating phase, list the APIServices backed
+# by that namespace and every namespaced resource still present in it — the
+# usual suspects when a namespace refuses to delete.
 
 print_green() {
     GREEN="\033[1;32m"

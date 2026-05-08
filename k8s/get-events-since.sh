@@ -1,4 +1,6 @@
 #!/bin/bash
+# Collect Kubernetes events emitted since a given time, with optional namespace
+# and label-selector filtering. See --help for options.
 
 cleanup() {
     rm -f $TMP

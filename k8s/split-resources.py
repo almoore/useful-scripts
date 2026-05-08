@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Read ./resources.yaml (a List of Kubernetes objects) and split each item
+into <namespace>/<kind>/<name>.yaml."""
 import yaml
 import os
 import sys

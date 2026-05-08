@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Run `helm diff upgrade` for one or more releases, render the diff with
+color, and prompt before invoking `helm upgrade` to apply the change."""
 import os
 import tempfile
 import yaml

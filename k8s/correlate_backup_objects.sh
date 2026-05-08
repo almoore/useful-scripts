@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Normalize a Kubernetes backup directory tree: rename group-suffixed
+# subdirs (e.g. "deployment.apps" -> "deployment") and prune redundant
+# resource kinds so the layout matches live cluster naming.
 set -eEo pipefail
 #set -x
 swapname() {
