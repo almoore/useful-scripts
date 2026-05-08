@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+"""Decode a Kubernetes Secret on stdin: emit each data key with its base64
+value decoded to readable YAML. Multi-line values are rendered as block
+scalars."""
 
 import sys
 import base64

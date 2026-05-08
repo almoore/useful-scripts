@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+"""Dump Kubernetes resources to YAML files on disk, one file per object,
+filtered by namespace and kind. Useful for ad-hoc backups before migrations
+or restores."""
 import os
 import yaml
 import argparse

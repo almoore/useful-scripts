@@ -23,6 +23,7 @@ openpyxl = "*"
 jira = "*"
 atlassian-python-api = "*"
 keyring = "*"
+cryptography = "*"
 
 [dev-packages]
 

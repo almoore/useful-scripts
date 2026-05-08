@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+"""Extract the manifest from a Helm v3 release Secret (sh.helm.release.v1.*):
+double-base64-decode the data.release field, gunzip it, and print the
+resulting release object as YAML."""
 import base64
 import gzip
 import yaml

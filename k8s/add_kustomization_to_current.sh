@@ -1,4 +1,6 @@
 #!/usr/local/bin/env python3
+# Generate a kustomization.yaml in the current directory listing every sibling
+# file as a resource. Despite the .sh extension this is a Python script.
 import os, yaml
 
 k_template = '''

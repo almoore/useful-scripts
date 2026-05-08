@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Read ./custom-resources.yaml (a List of CRs) and split each item into
+custom-resources/<namespace>/<kind>/<name>.yaml."""
 import yaml
 import os
 import sys

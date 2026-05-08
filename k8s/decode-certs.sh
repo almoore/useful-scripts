@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-
+# Find every kubernetes.io/tls Secret manifest under the current directory and
+# print the validity window of its tls.crt via openssl x509.
 CERTSECRETS=$(grep -r kubernetes.io/tls -l )
 for s_cert in $CERTSECRETS; do
 echo $s_cert

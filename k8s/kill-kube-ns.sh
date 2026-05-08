@@ -1,4 +1,7 @@
 #!/bin/bash
+# Force-delete a stuck Kubernetes namespace by clearing its finalizers via the
+# API server's /finalize subresource. Use only when normal `kubectl delete ns`
+# has been hanging in Terminating phase.
 
 ###############################################################################
 # Copyright (c) 2018 Red Hat Inc

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Bootstrap a kubeconfig entry for an AWS EKS cluster: optionally download a
+# pinned kubectl, query EKS for the cluster, and merge the resulting context.
+# See --help for options.
 trap_caught()
 {
     rm $TMPDIR
