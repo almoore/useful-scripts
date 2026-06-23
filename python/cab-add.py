@@ -62,7 +62,13 @@ def extract_page_id(page_url):
 
 
 def get_my_account_id(base_url, auth):
-    """Get the current user's Atlassian account ID."""
+    """Get the current user's Atlassian account ID.
+
+    Uses Jira's /rest/api/3/myself rather than a Confluence endpoint —
+    Jira and Confluence share Atlassian accounts on Cloud, so the same
+    accountId works for <ri:user ri:account-id="..."/> in Confluence
+    storage XHTML.
+    """
     resp = requests.get(f"{base_url}/rest/api/3/myself", auth=auth, timeout=15)
     resp.raise_for_status()
     return resp.json()["accountId"]
@@ -81,45 +87,58 @@ def fetch_page(base_url, page_id, auth):
 
 
 def update_page(base_url, page_id, title, body, version, message, auth):
-    """Update a Confluence page."""
-    payload = {
-        "id": str(page_id),
-        "status": "current",
-        "title": title,
-        "body": {
-            "representation": "storage",
-            "value": body,
-        },
-        "version": {
-            "number": version,
-            "message": message,
-        },
-    }
-    resp = requests.put(
-        f"{base_url}/wiki/api/v2/pages/{page_id}",
-        json=payload,
-        auth=auth,
-        timeout=15,
-    )
+    """Update a Confluence page.
+
+    Retries once on a 409 Conflict: re-fetches the current version,
+    re-PUTs with version+1. Beyond one retry we surface the error so a
+    sustained edit race doesn't quietly clobber concurrent work.
+    """
+    def _put(ver):
+        payload = {
+            "id": str(page_id),
+            "status": "current",
+            "title": title,
+            "body": {"representation": "storage", "value": body},
+            "version": {"number": ver, "message": message},
+        }
+        return requests.put(
+            f"{base_url}/wiki/api/v2/pages/{page_id}",
+            json=payload,
+            auth=auth,
+            timeout=15,
+        )
+
+    resp = _put(version)
+    if resp.status_code == 409:
+        print("409 Conflict — page bumped since read. Re-fetching and retrying once.",
+              file=sys.stderr)
+        current = fetch_page(base_url, page_id, auth)
+        resp = _put(current["version"]["number"] + 1)
     resp.raise_for_status()
     return resp.json()
 
 
 def is_empty_row(tr_html):
-    """Check if a table row has all empty cells (self-closing <p/> tags only)."""
+    """Check if a table row has all empty cells.
+
+    Treats both <p/> (self-closing) and <p></p> (open/close) as empty.
+    Confluence's editor usually emits self-closing, but storage round-trips
+    or manual edits can produce the open/close form.
+    """
     tds = re.findall(r'<td[^>]*>(.*?)</td>', tr_html, re.DOTALL)
     if not tds:
         return False
     for td in tds:
-        # Strip whitespace and check if only contains empty <p .../> tags
         content = td.strip()
-        cleaned = re.sub(r'<p[^/>]*/>', '', content).strip()
-        if cleaned:
+        cleaned = re.sub(r'<p[^/>]*/>', '', content)
+        cleaned = re.sub(r'<p[^>]*>\s*</p>', '', cleaned)
+        if cleaned.strip():
             return False
     return True
 
 
-def build_row_html(account_id, jira_key, pr_url, impact, rollback, jira_server_id):
+def build_row_html(account_id, jira_key, pr_url, impact, rollback,
+                   jira_server_id, approval_status):
     """Build a filled table row in Confluence storage format."""
     rid = lambda: uuid.uuid4().hex[:12]
 
@@ -149,7 +168,7 @@ def build_row_html(account_id, jira_key, pr_url, impact, rollback, jira_server_i
         f'<td ac:local-id="{rid()}"><p local-id="{rid()}">{pr_cell}</p></td>'
         f'<td ac:local-id="{rid()}"><p local-id="{rid()}">{impact}</p></td>'
         f'<td ac:local-id="{rid()}"><p local-id="{rid()}">{rollback}</p></td>'
-        f'<td ac:local-id="{rid()}"><p local-id="{rid()}">yes pending plan + approval</p></td>'
+        f'<td ac:local-id="{rid()}"><p local-id="{rid()}">{approval_status}</p></td>'
         f'<td ac:local-id="{rid()}"><p local-id="{rid()}" /></td>'
         f'</tr>'
     )
@@ -172,8 +191,10 @@ def main():
     group.add_argument("--page-id", help="Confluence page ID")
     group.add_argument("--date", default=str(date.today()),
                        help="CAB date to look up (default: today, e.g. 2026-03-02)")
-    parser.add_argument("--space-key", default="ISRE",
-                        help="Confluence space key (default: ISRE)")
+    # Default space is ENGR, where the CAB home page and weekly review pages
+    # now live (alongside the ADR home). Was ISRE before the 2026 reorg.
+    parser.add_argument("--space-key", default="ENGR",
+                        help="Confluence space key (default: ENGR)")
     parser.add_argument("--jira-key", action="append", required=True,
                         help="Jira ticket key (repeatable)")
     parser.add_argument("--pr-url", action="append", required=True,
@@ -182,6 +203,8 @@ def main():
                         help="Impact level (default: low)")
     parser.add_argument("--rollback", default="revert",
                         help="Rollback plan text (default: revert)")
+    parser.add_argument("--approval-status", default="yes pending plan + approval",
+                        help="Text for the Approved cell (default: 'yes pending plan + approval')")
     parser.add_argument("--dry-run", action="store_true",
                         help="Preview changes without modifying the page")
     add_auth_arguments(parser)
@@ -246,7 +269,8 @@ def main():
     for idx, (jira_key, pr_url) in enumerate(zip(args.jira_key, args.pr_url)):
         row_idx = empty_indices[idx]
         old_row = rows[row_idx].group()
-        new_row = build_row_html(account_id, jira_key, pr_url, args.impact, args.rollback, jira_server_id)
+        new_row = build_row_html(account_id, jira_key, pr_url, args.impact,
+                                 args.rollback, jira_server_id, args.approval_status)
         replacements.append((old_row, new_row, jira_key))
 
     new_body = body

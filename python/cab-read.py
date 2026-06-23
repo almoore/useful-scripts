@@ -164,8 +164,10 @@ def main():
     parser = argparse.ArgumentParser(description="Read the Confluence CAB review page")
     parser.add_argument("--date", default=str(date.today()),
                         help="Date string like 2026-03-02 (default: today)")
-    parser.add_argument("--space-key", default="ISRE",
-                        help="Confluence space key (default: ISRE)")
+    # Default space is ENGR, where the CAB home page and weekly review pages
+    # now live (alongside the ADR home). Was ISRE before the 2026 reorg.
+    parser.add_argument("--space-key", default="ENGR",
+                        help="Confluence space key (default: ENGR)")
     parser.add_argument("--format", dest="output_format", default="table",
                         choices=["table", "json"],
                         help="Output format (default: table)")

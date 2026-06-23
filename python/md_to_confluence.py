@@ -21,6 +21,39 @@ Usage:
     python md_to_confluence.py input.md --dry-run
 
 Requires: requests
+
+Design notes
+------------
+- Targets the Confluence Cloud v1 REST API (/wiki/rest/api/content) rather
+  than v2 (/wiki/api/v2/pages). v1 is simpler here because it accepts
+  space:{key:...} and ancestors:[{id:...}] directly; v2 requires looking up
+  the numeric spaceId first. Both work against Cloud; there is no v3.
+- Storage XHTML (the editor's native format) is generated directly. ADF
+  (atlas_doc_format) is not used.
+- _escape_xml runs before _inline, so raw HTML in the source markdown is
+  escaped rather than passed through.
+
+Known limitations
+-----------------
+- No nested-list support: an indented bullet ends the outer list instead
+  of starting a sub-list.
+- No image support: `![alt](url)` partially matches the inline link regex
+  and renders with a stray "!".
+- No task-list support: `- [ ] todo` renders as a literal bullet with
+  "[ ]" text.
+- No Confluence-specific macros (status, info/note/warning, expand, ToC,
+  intra-Confluence page links, Jira smart links). For those, hand-edit
+  the --dry-run XHTML before publishing.
+- Italic regex `*x*` will match across arithmetic text like `5 * 3 = 15`.
+- Update path always sends a title computed from the file. If the file's
+  H1 differs from the target page's current title, the page gets renamed
+  — which breaks inbound <ri:page ri:content-title=...> links elsewhere
+  in Confluence. Always pass --title explicitly on updates.
+- No version.message on update: page history shows "(no message)".
+- No 409 Conflict handling on update: a concurrent edit raises, no retry.
+- Tables: <td> contents are not wrapped in <p>, and <table> lacks the
+  data-layout="default" attribute the editor normally adds. Renders fine
+  but breaks some later editor operations on the table.
 """
 
 import argparse
@@ -30,6 +63,10 @@ import sys
 
 import requests
 
+# NOTE: pins atlassian_auth import to this script's directory. Move the
+# script (or invoke it through a symlink resolved elsewhere) and the import
+# breaks. Consider falling back to DEVOPS_SCRIPTS_DIR/lib if relocation is
+# ever needed.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from atlassian_auth import get_auth as _get_auth, add_auth_arguments
 
@@ -44,14 +81,23 @@ def _escape_xml(text):
 
 
 def _inline(text):
-    """Convert inline markdown to Confluence XHTML."""
-    # Bold
+    """Convert inline markdown to Confluence XHTML.
+
+    Runs AFTER _escape_xml, so any "<" / ">" in the source is already
+    `&lt;` / `&gt;`. Link `&` inside URLs are also `&amp;` here, which is
+    actually correct XHTML for href attribute values.
+    """
+    # Bold — must run before italic so ** doesn't get eaten by *
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
-    # Italic
+    # Italic — KNOWN: greedy across arithmetic, e.g. "5 * 3 = 15" becomes
+    # "5 <em>3 = 15</em>". Tighten with word-boundary lookarounds if needed.
     text = re.sub(r"\*(.+?)\*", r"<em>\1</em>", text)
     # Code spans
     text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
-    # Links
+    # Links — TODO: handle images. `![alt](url)` matches the `[alt](url)`
+    # tail of this pattern, leaving a stray "!" before the <a>. Either
+    # add an image branch (<ac:image><ri:url ri:value="..."/></ac:image>)
+    # or strip the leading "!" so the link form at least renders cleanly.
     text = re.sub(
         r"\[([^\]]+)\]\(([^)]+)\)",
         r'<a href="\2">\1</a>',
@@ -137,6 +183,11 @@ def md_to_confluence(text):
             continue
 
         # Unordered list
+        # KNOWN: no nested-list support. An indented bullet ends the outer
+        # list (rstrip strips the indent and the next iteration starts a
+        # fresh <ul>).
+        # KNOWN: no task-list support. `- [ ] todo` renders as a literal
+        # bullet with the "[ ]" inside the <li>.
         if re.match(r"^[-*]\s+", stripped):
             list_items = []
             while i < len(lines) and re.match(r"^[-*]\s+", lines[i].rstrip()):
@@ -146,7 +197,7 @@ def md_to_confluence(text):
             out.append("<ul>" + "".join(list_items) + "</ul>")
             continue
 
-        # Ordered list
+        # Ordered list — same nested/task-list caveats as <ul> above.
         if re.match(r"^\d+\.\s+", stripped):
             list_items = []
             while i < len(lines) and re.match(r"^\d+\.\s+", lines[i].rstrip()):
@@ -191,7 +242,14 @@ def md_to_confluence(text):
 
 
 def _convert_table(table_lines):
-    """Convert markdown table lines to Confluence XHTML table."""
+    """Convert markdown table lines to Confluence XHTML table.
+
+    KNOWN: column-alignment from the separator row (`|:---:|---:|`) is
+    discarded.
+    KNOWN: emits <table> rather than <table data-layout="default"> and
+    bare-text <td>/<th> cells rather than <td><p>cell</p></td>. Renders
+    correctly but breaks some later editor operations on the table.
+    """
     rows = []
     for line in table_lines:
         cells = [c.strip() for c in line.split("|")[1:-1]]
@@ -224,7 +282,11 @@ def _convert_table(table_lines):
 # ---------------------------------------------------------------------------
 
 def create_page(base_url, auth, space_key, title, body, parent_id=None):
-    """Create a new Confluence page. Returns the page dict."""
+    """Create a new Confluence page. Returns the page dict.
+
+    Uses v1 (/wiki/rest/api/content) — see the module docstring "Design
+    notes" for why.
+    """
     payload = {
         "type": "page",
         "title": title,
@@ -250,7 +312,19 @@ def create_page(base_url, auth, space_key, title, body, parent_id=None):
 
 
 def update_page(base_url, auth, page_id, title, body):
-    """Update an existing Confluence page. Returns the page dict."""
+    """Update an existing Confluence page. Returns the page dict.
+
+    The `title` arg is sent as-is. If it differs from the page's current
+    title, Confluence renames the page — which breaks any inbound
+    <ri:page ri:content-title="..."/> links elsewhere in the space.
+    Callers should pass the page's existing title unless a rename is
+    actually intended. See the CLI section for the resolution rule.
+
+    TODO: retry once on 409 Conflict (re-GET version, re-PUT) so a
+    concurrent edit doesn't lose this update.
+    TODO: accept an optional version-comment and forward it as
+    version.message so the page-history entry is readable.
+    """
     # Get current version
     resp = requests.get(
         f"{base_url}/wiki/rest/api/content/{page_id}",
@@ -304,6 +378,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="Convert Markdown to a Confluence page",
     )
+    # TODO: accept "-" for stdin so callers can pipe converted content in
+    # without a tempfile.
     parser.add_argument("input", help="Input Markdown file")
     parser.add_argument(
         "--space", "-s",
@@ -334,7 +410,14 @@ def main():
 
     extracted_title, body = md_to_confluence(md_text)
 
-    # Resolve title
+    # Resolve title.
+    # NOTE: on update (args.page_id set), this still falls back to the
+    # file's H1 / filename if --title is omitted. If that derived title
+    # differs from the live page's current title, the page gets renamed
+    # silently, which breaks inbound <ri:page ri:content-title="..."/>
+    # links. Safer behavior would be: on update with no --title, GET the
+    # current page and reuse its title. Pass --title explicitly until
+    # that's fixed.
     title = (
         args.title
         or extracted_title
@@ -352,6 +435,7 @@ def main():
         conf_path=args.conf,
         force_password=args.force_password,
     )
+    base_url = base_url.rstrip("/")
     auth = (username, password)
 
     if args.page_id:
