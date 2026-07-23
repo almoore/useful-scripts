@@ -39,8 +39,8 @@ Known limitations
   of starting a sub-list.
 - No image support: `![alt](url)` partially matches the inline link regex
   and renders with a stray "!".
-- No task-list support: `- [ ] todo` renders as a literal bullet with
-  "[ ]" text.
+- Task lists: `- [ ] todo` / `- [x] done` render as a Confluence task-list
+  (checkboxes). Nested task lists are not supported.
 - No Confluence-specific macros (status, info/note/warning, expand, ToC,
   intra-Confluence page links, Jira smart links). For those, hand-edit
   the --dry-run XHTML before publishing.
@@ -125,7 +125,8 @@ def md_to_confluence(text):
     """Convert a Markdown string to Confluence storage format XHTML.
 
     Supports: headings (H1-H6), bold, italic, code spans, links, bullet lists,
-    numbered lists, fenced code blocks, tables, blockquotes, and horizontal rules.
+    numbered lists, task lists (checkboxes), fenced code blocks, tables,
+    blockquotes, and horizontal rules.
 
     Returns (title, body) where title is extracted from the first H1 (if any).
     """
@@ -182,12 +183,29 @@ def md_to_confluence(text):
             out.append(_convert_table(table_lines))
             continue
 
+        # Task list: `- [ ] todo` / `- [x] done` -> Confluence <ac:task-list>.
+        # Must precede the plain unordered-list check below, since task items
+        # also match the generic bullet pattern.
+        if re.match(r"^[-*]\s+\[[ xX]\]\s+", stripped):
+            task_items = []
+            tid = 0
+            while i < len(lines) and re.match(r"^[-*]\s+\[[ xX]\]\s+", lines[i].rstrip()):
+                m = re.match(r"^[-*]\s+\[([ xX])\]\s+(.*)$", lines[i].rstrip())
+                tid += 1
+                status = "complete" if m.group(1).lower() == "x" else "incomplete"
+                task_items.append(
+                    f"<ac:task><ac:task-id>{tid}</ac:task-id>"
+                    f"<ac:task-status>{status}</ac:task-status>"
+                    f"<ac:task-body>{_inline(_escape_xml(m.group(2)))}</ac:task-body></ac:task>"
+                )
+                i += 1
+            out.append("<ac:task-list>" + "".join(task_items) + "</ac:task-list>")
+            continue
+
         # Unordered list
         # KNOWN: no nested-list support. An indented bullet ends the outer
         # list (rstrip strips the indent and the next iteration starts a
         # fresh <ul>).
-        # KNOWN: no task-list support. `- [ ] todo` renders as a literal
-        # bullet with the "[ ]" inside the <li>.
         if re.match(r"^[-*]\s+", stripped):
             list_items = []
             while i < len(lines) and re.match(r"^[-*]\s+", lines[i].rstrip()):
