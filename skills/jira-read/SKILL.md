@@ -1,7 +1,7 @@
 ---
 name: jira-read
 description: >
-  Search Jira Cloud issues via JQL (CCAOA tenant by default). Use when the
+  Search Jira Cloud issues via JQL (anthemai tenant by default). Use when the
   user wants to list, find, query, or filter Jira tickets — phrasings like
   "all open tickets in X", "what's assigned to me", "tickets created this
   week", "everything tagged with Y", or a raw JQL string. Handles auth via

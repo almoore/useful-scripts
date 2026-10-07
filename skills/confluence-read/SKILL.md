@@ -1,10 +1,10 @@
 ---
 name: confluence-read
 description: >
-  Read pages from Atlassian Confluence Cloud (CCAOA tenant by default).
+  Read pages from Atlassian Confluence Cloud (anthemai tenant by default).
   Use when the user asks you to review, summarize, fetch, audit, or inspect
   a Confluence page or its children — anything starting with a URL like
-  https://ccaoa.atlassian.net/wiki/spaces/.../pages/... or a page ID.
+  https://anthemai.atlassian.net/wiki/spaces/.../pages/... or a page ID.
   Handles auth via the shared atlassian_auth helper and prefers the v2 REST
   API. Confluence Cloud has no v3 — do not look for one.
 ---
@@ -16,7 +16,7 @@ description: >
 Any of:
 - User pastes a `*.atlassian.net/wiki/spaces/<KEY>/pages/<id>/...` URL.
 - User asks to "review / summarize / audit / look at / pull / read" a Confluence page.
-- User mentions a page title and a space (e.g. "the ADR home page in ENGR").
+- User mentions a page title and a space (e.g. "the EKS upgrade page in CO").
 - User wants to walk a tree of pages (parent + children + grandchildren).
 
 Do **not** invoke for Jira tickets — use Jira tooling instead.
@@ -24,12 +24,12 @@ Do **not** invoke for Jira tickets — use Jira tooling instead.
 ## Auth
 
 Credentials come from the shared `atlassian_auth` helper. The helper reads
-`~/.atlassian-conf.json` (profile `default` → `https://ccaoa.atlassian.net`)
+`~/.atlassian-conf.json` (profile `default` → `https://anthemai.atlassian.net`)
 and pulls the API token from the macOS keyring.
 
 Search paths the helper script tries, in order:
 1. `$DEVOPS_SCRIPTS_DIR/lib/atlassian_auth.py`
-2. `/Users/alexmoore/repos/github.com/almoore/useful-scripts/python/atlassian_auth.py`
+2. `~/repos/github.com/almoore/useful-scripts/python/atlassian_auth.py`
 
 If neither is importable, prompt the user to either set `DEVOPS_SCRIPTS_DIR`
 or to point you at the file.
@@ -39,21 +39,21 @@ or to point you at the file.
 ```bash
 # Whole page by URL or numeric ID (auto-detected)
 python3 ~/.claude/skills/confluence-read/cf_get.py \
-  "https://ccaoa.atlassian.net/wiki/spaces/ENGR/pages/1532625010/Architecture+Decision+Records+ADRs"
+  "https://anthemai.atlassian.net/wiki/spaces/CO/pages/2843934750/Upgrade+EKS+clusters+from+1.32+-+1.33+Terraform"
 
 # Force a specific output format
-python3 ~/.claude/skills/confluence-read/cf_get.py 1532625010 --format storage
-python3 ~/.claude/skills/confluence-read/cf_get.py 1532625010 --format view
-python3 ~/.claude/skills/confluence-read/cf_get.py 1532625010 --format text   # readable plaintext (default)
+python3 ~/.claude/skills/confluence-read/cf_get.py 2843934750 --format storage
+python3 ~/.claude/skills/confluence-read/cf_get.py 2843934750 --format view
+python3 ~/.claude/skills/confluence-read/cf_get.py 2843934750 --format text   # readable plaintext (default)
 
 # Include children
-python3 ~/.claude/skills/confluence-read/cf_get.py 1532625010 --children
+python3 ~/.claude/skills/confluence-read/cf_get.py 2843934750 --children
 
 # Recurse one level deep (children of children)
-python3 ~/.claude/skills/confluence-read/cf_get.py 1532625010 --children --depth 2
+python3 ~/.claude/skills/confluence-read/cf_get.py 2843934750 --children --depth 2
 
 # Non-default Atlassian profile
-python3 ~/.claude/skills/confluence-read/cf_get.py 1532625010 --profile someother
+python3 ~/.claude/skills/confluence-read/cf_get.py 2843934750 --profile someother
 ```
 
 Output is structured: a header (title / id / spaceId / version / lastEdited)
@@ -72,7 +72,7 @@ import sys, os
 # Make atlassian_auth importable
 for p in (
     os.path.join(os.environ.get("DEVOPS_SCRIPTS_DIR", ""), "lib"),
-    "/Users/alexmoore/repos/github.com/almoore/useful-scripts/python",
+    os.path.join(os.path.expanduser("~"), "repos/github.com/almoore/useful-scripts/python"),
 ):
     if p and os.path.isdir(p):
         sys.path.insert(0, p)
@@ -94,7 +94,7 @@ requests.get(f"{url}/wiki/api/v2/pages/{page_id}/children",
 # v2 — search pages in a space by title (CQL fallback is v1)
 # v1 CQL is the right tool for "find a page by title"
 requests.get(f"{url}/wiki/rest/api/content/search",
-             params={"cql": 'space = "ENGR" and title = "ADR Template"',
+             params={"cql": 'space = "CO" and title = "Upgrade EKS clusters"',
                      "expand": "body.storage,version"},
              auth=auth)
 

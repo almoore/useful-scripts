@@ -19,7 +19,7 @@ import sys
 
 for _p in (
     os.path.join(os.environ.get("DEVOPS_SCRIPTS_DIR", ""), "lib"),
-    "/Users/alexmoore/repos/github.com/almoore/useful-scripts/python",
+    os.path.join(os.path.expanduser("~"), "repos/github.com/almoore/useful-scripts/python"),
 ):
     if _p and os.path.isdir(_p):
         sys.path.insert(0, _p)

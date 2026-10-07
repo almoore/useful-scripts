@@ -1,10 +1,10 @@
 ---
 name: jira-get
 description: >
-  Fetch a single Jira Cloud issue by key or URL (CCAOA tenant by default).
+  Fetch a single Jira Cloud issue by key or URL (anthemai tenant by default).
   Use when the user asks you to read, look at, summarize, inspect, or pull
   the details of a Jira ticket — anything starting with `PROJ-123` or a
-  URL like https://ccaoa.atlassian.net/browse/PROJ-123. Handles auth via
+  URL like https://anthemai.atlassian.net/browse/PROJ-123. Handles auth via
   the shared atlassian_auth helper and prefers Jira Cloud REST v3 (ADF).
   Do not invoke for Confluence pages (use confluence-read), JQL / multi-
   issue search (use jira-read), or creating a new ticket (use jira-create).
@@ -28,13 +28,13 @@ Do **not** invoke for:
 ## Auth
 
 Credentials come from the shared `atlassian_auth` helper. The helper reads
-`~/.atlassian-conf.json` (profile `default` → `https://ccaoa.atlassian.net`)
+`~/.atlassian-conf.json` (profile `default` → `https://anthemai.atlassian.net`)
 and pulls the API token from the macOS keyring. One Atlassian API token
 covers both Jira and Confluence — same credentials as `confluence-read`.
 
 Search paths the helper script tries, in order:
 1. `$DEVOPS_SCRIPTS_DIR/lib/atlassian_auth.py`
-2. `/Users/alexmoore/repos/github.com/almoore/useful-scripts/python/atlassian_auth.py`
+2. `~/repos/github.com/almoore/useful-scripts/python/atlassian_auth.py`
 
 ## The fast path — `jira_get.py`
 
@@ -44,7 +44,7 @@ python3 ~/.claude/skills/jira-get/jira_get.py CLOUDOPS-1234
 
 # By URL (key auto-extracted)
 python3 ~/.claude/skills/jira-get/jira_get.py \
-  https://ccaoa.atlassian.net/browse/CLOUDOPS-1234
+  https://anthemai.atlassian.net/browse/CLOUDOPS-1234
 
 # Include comments / subtasks / changelog
 python3 ~/.claude/skills/jira-get/jira_get.py CLOUDOPS-1234 --comments
@@ -74,7 +74,7 @@ Confluence Cloud, Jira's v3 is real — use it.
 import sys, os
 for p in (
     os.path.join(os.environ.get("DEVOPS_SCRIPTS_DIR", ""), "lib"),
-    "/Users/alexmoore/repos/github.com/almoore/useful-scripts/python",
+    "~/repos/github.com/almoore/useful-scripts/python",
 ):
     if p and os.path.isdir(p):
         sys.path.insert(0, p)
@@ -120,7 +120,7 @@ Issue keys look like `<PROJECT>-<number>` with the project all caps. URLs:
   The helper converts to plaintext for human review — round-tripping
   through wiki markup will lose formatting.
 - **Custom fields are opaque IDs** (`customfield_10020`) unless you pass
-  `expand=names`. CCAOA's `Sprint`, `Story Points`, `Epic Link` all live
+  `expand=names`. This tenant's `Sprint`, `Story Points`, `Epic Link` all live
   under `customfield_*`. Use `--format json` once to map them.
 - **Stale data after a write.** If a value was just changed in the UI and
   the read shows the old version, retry once — Jira's read replicas can

@@ -1,7 +1,7 @@
 ---
 name: jira-create
 description: >
-  Create a new Jira Cloud issue (CCAOA tenant by default). Use when the
+  Create a new Jira Cloud issue (anthemai tenant by default). Use when the
   user asks you to file, open, log, create, draft, or "make a Jira" for
   a new ticket, bug, task, or epic. Wraps the existing jira_create_issue.py
   CLI in useful-scripts; for "epic + N tasks" bulk creation, points to
@@ -37,7 +37,7 @@ script wires the auth itself; you just pass `--profile` if you need a non-defaul
 The script already exists in useful-scripts. Do not reimplement.
 
 ```bash
-SCRIPT=/Users/alexmoore/repos/github.com/almoore/useful-scripts/python/jira_create_issue.py
+SCRIPT=~/repos/github.com/almoore/useful-scripts/python/jira_create_issue.py
 
 # Minimal — summary on argv, description piped on stdin
 echo "Long description here" | python3 "$SCRIPT" CLOUDOPS "Short summary"
@@ -90,7 +90,7 @@ Exit codes: `0` success, `1` API/JIRAError, `2` missing required arg.
 ## Bulk create — `jira_create_epic_with_tasks.py`
 
 Same directory:
-`/Users/alexmoore/repos/github.com/almoore/useful-scripts/python/jira_create_epic_with_tasks.py`
+`~/repos/github.com/almoore/useful-scripts/python/jira_create_epic_with_tasks.py`
 
 For "create an epic and N tasks under it" workflows. Read its `--help`
 before invoking; it consumes a spec describing the epic + children. Use
@@ -106,7 +106,7 @@ linking after create):
 import sys, os
 for p in (
     os.path.join(os.environ.get("DEVOPS_SCRIPTS_DIR", ""), "lib"),
-    "/Users/alexmoore/repos/github.com/almoore/useful-scripts/python",
+    "~/repos/github.com/almoore/useful-scripts/python",
 ):
     if p and os.path.isdir(p):
         sys.path.insert(0, p)

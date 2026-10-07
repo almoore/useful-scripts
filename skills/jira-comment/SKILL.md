@@ -1,7 +1,7 @@
 ---
 name: jira-comment
 description: >
-  Add a comment to an existing Jira Cloud issue (CCAOA tenant by default).
+  Add a comment to an existing Jira Cloud issue (anthemai tenant by default).
   Use whenever the user asks you to comment on, add a note to, leave an
   update on, reply on, or "post to" a Jira ticket — phrasings like "add
   notes to PROJ-123", "comment on that ticket", "drop a status update on
@@ -31,12 +31,12 @@ Do **not** invoke for:
 ## Auth
 
 Same `atlassian_auth` helper used by `jira-get` / `jira-create`:
-`~/.atlassian-conf.json` (profile `default` → `https://ccaoa.atlassian.net`)
+`~/.atlassian-conf.json` (profile `default` → `https://anthemai.atlassian.net`)
 plus the API token from the macOS keyring. One token covers Jira and Confluence.
 
 Search paths the script tries, in order:
 1. `$DEVOPS_SCRIPTS_DIR/lib/atlassian_auth.py`
-2. `/Users/alexmoore/repos/github.com/almoore/useful-scripts/python/atlassian_auth.py`
+2. `~/repos/github.com/almoore/useful-scripts/python/atlassian_auth.py`
 
 ## The fast path — `jira_comment.py`
 
@@ -53,7 +53,7 @@ python3 "$SCRIPT" DEVOPS-1 --body-file notes.md
 echo "Quick status note" | python3 "$SCRIPT" DEVOPS-1
 
 # By URL (key auto-extracted)
-python3 "$SCRIPT" https://ccaoa.atlassian.net/browse/DEVOPS-1 --body "..."
+python3 "$SCRIPT" https://anthemai.atlassian.net/browse/DEVOPS-1 --body "..."
 
 # Preview the payload without posting
 python3 "$SCRIPT" DEVOPS-1 --body "..." --dry-run
@@ -114,7 +114,7 @@ comments before adding one):
 import sys, os
 for p in (
     os.path.join(os.environ.get("DEVOPS_SCRIPTS_DIR", ""), "lib"),
-    "/Users/alexmoore/repos/github.com/almoore/useful-scripts/python",
+    "~/repos/github.com/almoore/useful-scripts/python",
 ):
     if p and os.path.isdir(p):
         sys.path.insert(0, p)

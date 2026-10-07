@@ -1,7 +1,7 @@
 ---
 name: confluence-write
 description: >
-  Create or update pages in Atlassian Confluence Cloud (CCAOA tenant by
+  Create or update pages in Atlassian Confluence Cloud (anthemai tenant by
   default). Use when the user asks you to write, draft, publish, post,
   create, update, edit, or "fix" a Confluence page. Two paths: hand a
   markdown file to the existing md_to_confluence.py CLI for whole-page
@@ -17,8 +17,8 @@ Any of:
 - User says "create / draft / publish / post / write a Confluence page".
 - User says "update / edit / fix / append to" a Confluence page.
 - User provides text/markdown and asks for it to land on Confluence.
-- User asks for a targeted change (e.g. "add a row to the ADR register",
-  "change the status macro on ADR-001 to ACCEPTED").
+- User asks for a targeted change (e.g. "add a row to the release table",
+  "change the status macro on the runbook to DONE").
 
 Pair with `confluence-read` when the task is to **edit** an existing page —
 read first, plan the diff, then write.
@@ -29,8 +29,8 @@ A `POST` or `PUT` to Confluence is visible to other humans and emails
 watchers. Before any write, summarize what you're about to do and ask for
 confirmation:
 
-> "Going to **create** a page titled *X* under parent *Y* in space ENGR.
-> Body is ~Z lines, includes a status macro and a register table. OK to
+> "Going to **create** a page titled *X* under parent *Y* in space CO.
+> Body is ~Z lines, includes a status macro and a steps table. OK to
 > publish?"
 
 For updates, also state the page ID, the current version, and the diff
@@ -40,28 +40,28 @@ unchanged"). Do not auto-publish from a fresh prompt.
 ## Path 1 — markdown → page via `md_to_confluence.py`
 
 The user maintains `md_to_confluence.py` at
-`/Users/alexmoore/repos/github.com/almoore/useful-scripts/python/md_to_confluence.py`.
+`~/repos/github.com/almoore/useful-scripts/python/md_to_confluence.py`.
 Use it as the default for any whole-page create/update where the source is
 markdown. It handles markdown → storage XHTML conversion, auth, version
 bumping, and the create-vs-update branch.
 
 ```bash
 # Always start with a dry-run to inspect the converted XHTML
-python3 /Users/alexmoore/repos/github.com/almoore/useful-scripts/python/md_to_confluence.py \
+python3 ~/repos/github.com/almoore/useful-scripts/python/md_to_confluence.py \
     page.md --dry-run
 
 # Create a new page (auto-selects the first H1 as title)
 python3 .../md_to_confluence.py page.md \
-    --space ENGR --parent-id 1532625010
+    --space CO --parent-id 2843934750
 
 # Override the title
 python3 .../md_to_confluence.py page.md \
-    --space ENGR --parent-id 1532625010 \
-    --title "ADR-0002: Adopt PostgreSQL for billing"
+    --space CO --parent-id 2843934750 \
+    --title "Upgrade EKS clusters from 1.33 -> 1.34 (Terraform)"
 
 # Update an existing page (pass the page ID; title defaults to file's H1)
-python3 .../md_to_confluence.py page.md --page-id 1534328833 \
-    --title "ADR-001: New infra for AppRunner workloads"
+python3 .../md_to_confluence.py page.md --page-id 2843934750 \
+    --title "Upgrade EKS clusters from 1.32 -> 1.33 (Terraform)"
 ```
 
 ### Markdown features the converter supports
@@ -107,7 +107,7 @@ the current storage body, modify it as XML, write it back. v2 API:
 import sys, os
 for p in (
     os.path.join(os.environ.get("DEVOPS_SCRIPTS_DIR", ""), "lib"),
-    "/Users/alexmoore/repos/github.com/almoore/useful-scripts/python",
+    os.path.join(os.path.expanduser("~"), "repos/github.com/almoore/useful-scripts/python"),
 ):
     if p and os.path.isdir(p):
         sys.path.insert(0, p)
@@ -116,7 +116,7 @@ import requests
 
 url, user, token = get_auth()
 auth = (user, token)
-page_id = "1532625010"
+page_id = "2843934750"
 
 # 1. Read fresh — immediately before the write
 cur = requests.get(
@@ -127,7 +127,7 @@ cur = requests.get(
 body = cur["body"]["storage"]["value"]
 new_body = body.replace(
     "<!-- INSERT NEW ROW HERE -->",
-    "<tr><td><p>ADR-002</p></td><td><p>New thing</p></td></tr>",
+    "<tr><td><p>step</p></td><td><p>detail</p></td></tr>",
 )
 
 # 2. PUT with version + 1
@@ -138,7 +138,7 @@ payload = {
     "body": {"representation": "storage", "value": new_body},
     "version": {
         "number": cur["version"]["number"] + 1,
-        "message": "Add ADR-002 row to register",
+        "message": "Add step row",
     },
 }
 r = requests.put(f"{url}/wiki/api/v2/pages/{page_id}", json=payload, auth=auth, timeout=20)
@@ -188,21 +188,21 @@ echo hello
 
 <!-- Status lozenge -->
 <ac:structured-macro ac:name="status">
-  <ac:parameter ac:name="title">ACCEPTED</ac:parameter>
+  <ac:parameter ac:name="title">DONE</ac:parameter>
   <ac:parameter ac:name="colour">Green</ac:parameter>
 </ac:structured-macro>
 <!-- Colours: Grey · Red · Yellow · Green · Blue · Purple -->
 
 <!-- Link to another Confluence page in the same space -->
 <ac:link>
-  <ri:page ri:content-title="ADR Template"/>
-  <ac:link-body>ADR Template</ac:link-body>
+  <ri:page ri:content-title="Upgrade EKS clusters from 1.32 -> 1.33 (Terraform)"/>
+  <ac:link-body>Previous upgrade runbook</ac:link-body>
 </ac:link>
 
 <!-- Link to a page in a different space -->
 <ac:link>
-  <ri:page ri:space-key="OPS" ri:content-title="Runbook: RDS failover"/>
-  <ac:link-body>RDS failover runbook</ac:link-body>
+  <ri:page ri:space-key="OPS" ri:content-title="Runbook: EKS failover"/>
+  <ac:link-body>EKS failover runbook</ac:link-body>
 </ac:link>
 
 <!-- Jira issue smart link -->
@@ -246,10 +246,10 @@ PUT  /wiki/rest/api/content/{id}
 POST /wiki/rest/api/content          # accepts space:{key:...} and ancestors:[{id:...}] directly
 
 # Looking up a space's numeric ID for v2 POST:
-GET  /wiki/api/v2/spaces?keys=ENGR    # -> results[0].id
+GET  /wiki/api/v2/spaces?keys=CO     # -> results[0].id
 
 # CQL search (v1 only — v2 has no equivalent yet)
-GET  /wiki/rest/api/content/search?cql=space="ENGR" AND title="ADR Template"
+GET  /wiki/rest/api/content/search?cql=space="CO" AND title="Upgrade EKS clusters"
 ```
 
 ## Gotchas
