@@ -105,6 +105,10 @@ k8s/add_kustomization_to_subdirs.sh      bin/  add_kustomization_to_subdirs
 # Helm
 helm/hrs-values.py          bin/  hrs-values.py
 
+# Terraform / TFE
+python/tfe_policy.py        bin/  tfe-policy
+python/tfe_targets.py       bin/  tfe-targets
+
 # Python utilities
 python/bs.py                bin/  bs
 python/bs-pass.py           bin/  bs-pass
