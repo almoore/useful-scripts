@@ -24,6 +24,7 @@ jira = "*"
 atlassian-python-api = "*"
 keyring = "*"
 cryptography = "*"
+six = "*"
 
 [dev-packages]
 
