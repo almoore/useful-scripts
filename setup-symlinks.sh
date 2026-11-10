@@ -113,6 +113,7 @@ python/tfe_targets.py       bin/  tfe-targets
 python/bs.py                bin/  bs
 python/bs-pass.py           bin/  bs-pass
 python/export_dotenv.py     bin/  export-dotenv
+python/md_to_clipboard.py   bin/  md2clip
 
 # Other
 bash/clone_match_path.sh       bin/  clone_match_path
